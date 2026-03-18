@@ -3145,7 +3145,7 @@ function loginSuccess(account, fromSession){
   // Update topnav branch badge
   // Update logo text to account name
   const navLogoName = document.getElementById('nav-logo-name');
-  if(navLogoName) navLogoName.textContent = account.fullname || BRANCH_NAMES[account.branch] || account.user;
+  // nav-logo stays as 'Zentea QLCH' — branch shown in right pill only
 
   // Account dropdown in topnav
   const navBadge = document.getElementById('nav-branch-badge');
