@@ -3167,14 +3167,7 @@ function loginSuccess(account, fromSession){
   const logo = document.querySelector('.sb-logo-text');
   if(logo) logo.textContent = account.fullname || BRANCH_NAMES[account.branch] || account.user;
   // Branch badge below stats bar
-  const statsBar = document.querySelector('.stats-bar');
-  if(statsBar && !document.getElementById('branch-badge')){
-    const badge = document.createElement('div');
-    badge.id = 'branch-badge';
-    badge.style.cssText = 'background:var(--green);color:#fff;text-align:center;padding:10px;font-size:13px;font-weight:700;letter-spacing:.5px;';
-    badge.innerHTML = '🏪 ' + (account.fullname || BRANCH_NAMES[account.branch] || account.user);
-    statsBar.parentNode.insertBefore(badge, statsBar);
-  }
+  // branch-badge removed — branch shown in topnav right pill only
   // Add logout button to sidebar (only once, if sidebar exists)
   const nav = document.querySelector('.sb-nav');
   if(nav && !document.getElementById('logout-btn')){
@@ -3207,8 +3200,7 @@ function doLogout(){
   document.getElementById('home').style.display = 'flex';
   window.scrollTo({top:0,behavior:'instant'});
   // Remove branch badge
-  const badge = document.getElementById('branch-badge');
-  if(badge) badge.remove();
+  // branch-badge removed
   // Reset logout button
   const logoutBtn = document.getElementById('logout-btn');
   if(logoutBtn && logoutBtn.parentElement) logoutBtn.parentElement.remove();
@@ -3982,7 +3974,7 @@ let currentUser = null;
 function toggleAuthMode(){}  // no-op (not used in new UI)
 function togglePwdOld(){}
 
-async function doAuth(){
+async async function doAuth(){
   if(!selectedBranch) return;
   const pass = document.getElementById('branch-pass-input').value.trim();
   const errEl = document.getElementById('auth-error');
@@ -4078,7 +4070,7 @@ function closeAdminPanel(){
   document.getElementById('admin-panel').style.display = 'none';
 }
 
-async function getStorePw(branchId){
+async async function getStorePw(branchId){
   const key = 'zentea-store-pw-' + branchId;
   try {
     const r = await window.storage.get(key, true);
