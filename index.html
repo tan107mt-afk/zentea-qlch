@@ -7077,7 +7077,7 @@ function wmParseExcel(buf){
           var tenNL    = String(row[4] != null ? row[4] : '').trim();
           var dvt      = String(row[5] != null ? row[5] : '').trim();
           var isTPH    = phanLoai.toLowerCase() === 'nước_tea' || phanLoai.toLowerCase() === 'nuoc_tea';
-          var slHuy    = isTPH ? (parseFloat(row[12]) || 0)   // Chủ quan cho Nước_tea
+          var slHuy    = isTPH ? ((parseFloat(row[10])||0) + (parseFloat(row[11])||0) + (parseFloat(row[12])||0))  // Test + Không đạt + Chủ quan
                                : (parseFloat(row[9])  || 0);  // Hết hạn cho NVL/Topping
 
           if(!tenNL || tenNL === 'Tên Nguyên liệu') continue;
