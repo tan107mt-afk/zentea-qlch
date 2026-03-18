@@ -118,6 +118,7 @@ body{font-family:'Open Sans',sans-serif;background:#f4f9f0;color:var(--text);min
 /* Hide nav items until logged in — completely invisible */
 body:not(.logged-in) .nav-items{ display:none !important; }
 body:not(.logged-in) .nav-branch{ display:none !important; }
+body.logged-in .nav-branch{ display:flex !important; }
 
 /* Animate nav items appearing after login */
 body.logged-in .nav-items{ display:flex; animation:navSlideIn .35s ease both; }
@@ -149,8 +150,29 @@ body.logged-in #topnav-login-hint{ display:none !important; }
 
 /* Branch badge */
 .nav-branch{
-  margin-left:auto;padding:0 16px;display:flex;align-items:center;gap:8px;flex-shrink:0;
+  margin-left:auto;padding:0 12px 0 0;display:flex;align-items:center;flex-shrink:0;
 }
+.nav-branch-inner{
+  display:flex;align-items:center;gap:0;
+  background:rgba(255,255,255,.15);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:20px;overflow:hidden;
+}
+.nav-branch-name{
+  display:flex;align-items:center;gap:6px;
+  padding:5px 10px;color:#fff;
+  font-size:12px;font-weight:700;
+  white-space:nowrap;max-width:160px;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.nav-logout-btn{
+  display:flex;align-items:center;justify-content:center;
+  padding:5px 10px;background:rgba(255,255,255,.1);
+  border:none;border-left:1px solid rgba(255,255,255,.2);
+  color:#fff;cursor:pointer;font-size:13px;
+  font-family:'Open Sans',sans-serif;transition:background .15s;
+}
+.nav-logout-btn:hover{ background:rgba(230,80,80,.4); }
 
 /* ═══ MAIN ═══ */
 #main{
