@@ -3176,9 +3176,9 @@ function loginSuccess(account, fromSession){
     nav.appendChild(div);
   }
   // Render employees list
-  renderEmployees();
+  try { renderEmployees(); } catch(e){}
   // Load all branch-specific data
-  loadBranchData().then(function(){ applyAllContentEdits(); });
+  try { loadBranchData().then(function(){ try{ applyAllContentEdits(); }catch(e){} }).catch(e=>{}); } catch(e){}
 }
 
 function doLogout(){
@@ -4009,12 +4009,13 @@ async function saveAccounts(){}
 async function checkSession(){
   try {
     const s = sessionStorage.getItem('zentea-session');
-    if(s){
-      const u = JSON.parse(s);
-      selectedBranch = u.branch || u.user;
-      loginSuccess(u, true);
-    }
-  } catch(e){}
+    if(!s) return;
+    const u = JSON.parse(s);
+    selectedBranch = u.branch || u.user;
+    // Small delay to ensure DOM is fully ready
+    await new Promise(r => setTimeout(r, 50));
+    loginSuccess(u, true);
+  } catch(e){ console.warn('[checkSession] error:', e); }
 }
 
 // ═══════════════════════════════════════
