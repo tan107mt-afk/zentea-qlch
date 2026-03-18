@@ -7024,29 +7024,90 @@ function wmParseExcel(buf){
   return new Promise(function(resolve, reject){
     function doparse(){
       try {
-        var wb = XLSX.read(new Uint8Array(buf), {type:'array'});
+        var wb = XLSX.read(new Uint8Array(buf), {type:'array', cellDates:true});
         var sheet = wb.Sheets['SG2'] || wb.Sheets[wb.SheetNames[0]];
-        var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:''});
+        if(!sheet) { reject(new Error('Không tìm thấy sheet SG2')); return; }
+        var rows = XLSX.utils.sheet_to_json(sheet, {header:1, defval:'', raw:false});
+        
+        // Debug: log first few rows
+        console.log('Total rows:', rows.length);
+        if(rows.length > 0) console.log('Header:', JSON.stringify(rows[0]));
+        if(rows.length > 1) console.log('Row1:', JSON.stringify(rows[1]));
+        
         var result = {};
-        rows.forEach(function(row){
-          var ngay=row[0], phanLoai=String(row[2]||'').trim().toLowerCase();
-          var tenNL=String(row[4]||'').trim(), dvt=String(row[5]||'').trim().toLowerCase();
-          var slHuy=parseFloat(row[9])||0;
-          if(!tenNL||!ngay||phanLoai==='nước_tea') return;
-          var d=new Date(1900,0,ngay-1);
-          if(isNaN(d.getTime())) return;
-          var ym=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-          var key=tenNL.toLowerCase()+'|'+dvt;
-          if(!result[key]) result[key]={tenNL:tenNL,dvt:dvt,thang:{}};
-          result[key].thang[ym]=(result[key].thang[ym]||0)+slHuy;
+        var skipped = 0;
+        
+        rows.forEach(function(row, rowIdx){
+          if(!row || row.length === 0) return;
+          
+          // Col 0: Ngày (date string "1/1/2026" or Date object)
+          // Col 2: Phân loại
+          // Col 4: Tên NL
+          // Col 5: ĐVT  
+          // Col 9: Hết hạn (SL hủy)
+          
+          var ngayRaw = row[0];
+          var phanLoai = String(row[2]||'').trim().toLowerCase();
+          var tenNL = String(row[4]||'').trim();
+          var dvt = String(row[5]||'').trim().toLowerCase();
+          var slHuy = parseFloat(String(row[9]||'0').replace(',','.')) || 0;
+          
+          // Skip header row and empty rows
+          if(!tenNL || tenNL === 'Tên Nguyên liệu' || tenNL === 'Tên NL') return;
+          if(rowIdx === 0) return; // skip header
+          
+          // Skip nước_tea category
+          if(phanLoai === 'nước_tea') { skipped++; return; }
+          
+          // Skip rows with no quantity
+          if(slHuy === 0) return;
+          
+          // Parse date - can be "1/1/2026", "2026-01-01", or Excel serial number
+          var d = null;
+          if(ngayRaw instanceof Date || (typeof ngayRaw === 'object' && ngayRaw !== null)) {
+            d = new Date(ngayRaw);
+          } else if(typeof ngayRaw === 'number' && ngayRaw > 1000) {
+            // Excel serial date
+            d = new Date((ngayRaw - 25569) * 86400 * 1000);
+          } else if(typeof ngayRaw === 'string' && ngayRaw) {
+            // Try parsing string date formats
+            var parts = ngayRaw.split(/[\/\-\.]/);
+            if(parts.length === 3) {
+              var y = parts[2].length === 4 ? parseInt(parts[2]) : parseInt(parts[0]);
+              var m = parts[2].length === 4 ? parseInt(parts[1])-1 : parseInt(parts[1])-1;
+              var dd = parts[2].length === 4 ? parseInt(parts[0]) : parseInt(parts[2]);
+              if(ngayRaw.indexOf('/') > 0) { // M/D/Y format
+                m = parseInt(parts[0])-1;
+                dd = parseInt(parts[1]);
+                y = parseInt(parts[2]);
+              }
+              d = new Date(y, m, dd);
+            } else {
+              d = new Date(ngayRaw);
+            }
+          }
+          
+          if(!d || isNaN(d.getTime())) { skipped++; return; }
+          
+          var ym = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+          var key = tenNL.toLowerCase() + '|' + dvt;
+          if(!result[key]) result[key] = {tenNL:tenNL, dvt:dvt, thang:{}};
+          result[key].thang[ym] = (result[key].thang[ym]||0) + slHuy;
         });
-        resolve(Object.values(result));
-      } catch(e){ reject(e); }
+        
+        var arr = Object.values(result);
+        console.log('Parsed:', arr.length, 'items, skipped:', skipped);
+        resolve(arr);
+      } catch(e){
+        console.error('Parse error:', e);
+        reject(e);
+      }
     }
     if(typeof XLSX!=='undefined'){ doparse(); return; }
     var s=document.createElement('script');
     s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
-    s.onload=doparse; s.onerror=function(){reject(new Error('Không tải được SheetJS'));};
+    s.onload=doparse;
+    s.onerror=function(){reject(new Error('Không tải được SheetJS'));};
     document.head.appendChild(s);
   });
 }
