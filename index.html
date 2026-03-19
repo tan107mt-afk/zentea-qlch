@@ -1474,18 +1474,7 @@ footer strong{color:var(--green-light);}
     </div>
   </div>
   <div class="acc-body"><div class="acc-inner" style="padding:0;">
-    <!-- Compare bar NL -->
-    <div id="wm-compare-panel" style="padding:12px 20px 0 20px;display:none;">
-      <div style="background:#f0fdf4;border:1.5px solid #bbf7d0;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-        <span style="font-size:12px;font-weight:700;color:var(--green);white-space:nowrap;">📊 So sánh:</span>
-        <select id="wm-cmp-sel" onchange="wmUpdateCompare('wm')" style="padding:4px 10px;border-radius:8px;border:1.5px solid #bbf7d0;font-size:12px;font-family:'Open Sans',sans-serif;background:#fff;color:#1a1a1a;outline:none;cursor:pointer;">
-          <option value="">-- Chọn nguyên liệu --</option>
-        </select>
-        <div id="wm-cmp-bars" style="flex:1;min-width:200px;"></div>
-        <button onclick="document.getElementById('wm-compare-panel').style.display='none'" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:16px;padding:0 4px;line-height:1;" title="Đóng">✕</button>
-      </div>
-    </div>
-    <div style="overflow-x:auto;width:100%;">
+        <div style="overflow-x:auto;width:100%;">
       <table id="wm-excel-table" style="width:100%;border-collapse:collapse;font-size:12px;font-family:'Open Sans',sans-serif;min-width:1100px;">
         <thead>
           <tr style="background:linear-gradient(135deg,#1e5c1e,var(--green));color:#fff;">
@@ -1528,17 +1517,6 @@ footer strong{color:var(--green-light);}
       </div>
     </div>
     <div class="acc-inner" style="padding:0;">
-      <!-- Compare bar TPH -->
-      <div id="tph-compare-panel" style="padding:12px 20px 0 20px;display:none;">
-        <div style="background:#fff5f5;border:1.5px solid #fecaca;border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-          <span style="font-size:12px;font-weight:700;color:#b91c1c;white-space:nowrap;">📊 So sánh:</span>
-          <select id="tph-cmp-sel" onchange="wmUpdateCompare('tph')" style="padding:4px 10px;border-radius:8px;border:1.5px solid #fecaca;font-size:12px;font-family:'Open Sans',sans-serif;background:#fff;color:#1a1a1a;outline:none;cursor:pointer;">
-            <option value="">-- Chọn thành phẩm --</option>
-          </select>
-          <div id="tph-cmp-bars" style="flex:1;min-width:200px;"></div>
-          <button onclick="document.getElementById('tph-compare-panel').style.display='none'" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:16px;padding:0 4px;line-height:1;" title="Đóng">✕</button>
-        </div>
-      </div>
       <div style="overflow-x:auto;width:100%;">
         <table style="width:100%;border-collapse:collapse;font-size:12px;font-family:'Open Sans',sans-serif;min-width:1100px;">
           <thead>
@@ -6396,8 +6374,7 @@ function wmRender(){
     return '<tr>'+cells+'</tr>';
   }).join('');
 
-  if(tfoot) tfoot.innerHTML = '';  // no totals row
-  wmRenderCompare('wm', data);
+  wmRenderCompare('wm', data, tfoot);
 }
 function wmRowSum(r){ return (r.months||[]).reduce(function(a,b){return a+(b||0);},0); }
 
@@ -6412,51 +6389,66 @@ function wmToggleSort(prefix){
   if(btn) btn.textContent = labels[window[key]];
 }
 
-function wmRenderCompare(prefix, data){
-  var sel = document.getElementById(prefix+'-cmp-sel');
-  if(!sel) return;
-  var curVal = sel.value;
-  var opts = '<option value="">-- Chọn '+(prefix==='wm'?'nguyên liệu':'thành phẩm')+' --</option>';
+function wmRenderCompare(prefix, data, tfoot){
+  if(!tfoot) return;
+  if(data.length === 0){ tfoot.innerHTML=''; return; }
+
+  // Build select
+  var isWm = (prefix==='wm');
+  var accentColor = isWm ? 'var(--green)' : '#b91c1c';
+  var bgColor     = isWm ? '#f0fdf4' : '#fff5f5';
+  var borderColor = isWm ? '#bbf7d0' : '#fecaca';
+  var selStyle = 'padding:4px 10px;border-radius:8px;border:1.5px solid '+borderColor+';font-size:12px;font-family:\'Open Sans\',sans-serif;background:#fff;color:#1a1a1a;outline:none;cursor:pointer;max-width:170px;';
+  var opts = '<option value="">-- Chọn '+(isWm?'nguyên liệu':'thành phẩm')+' --</option>';
   data.forEach(function(r,i){ opts += '<option value="'+i+'">'+(r.name||'')+'</option>'; });
-  sel.innerHTML = opts;
-  if(curVal && data[parseInt(curVal)]) sel.value = curVal;
-  var panel = document.getElementById(prefix+'-compare-panel');
-  if(panel) panel.style.display = data.length>0 ? 'block' : 'none';
-  if(sel.value) wmUpdateCompare(prefix);
-  else { var bars=document.getElementById(prefix+'-cmp-bars'); if(bars) bars.innerHTML=''; }
+
+  // Hàng footer: ô đầu = select, span 12 ô giữa = bars, ô cuối trống
+  var tdBase = 'padding:8px;font-size:12px;';
+  var tdSel  = '<td style="'+tdBase+'background:'+bgColor+';position:sticky;left:0;z-index:2;white-space:nowrap;">'
+    + '<div style="display:flex;align-items:center;gap:6px;">'
+    + '<span style="font-size:11px;font-weight:700;color:'+accentColor+';">📊</span>'
+    + '<select id="'+prefix+'-cmp-sel" onchange="wmUpdateCompare(\''+prefix+'\')" style="'+selStyle+'">'+opts+'</select>'
+    + '</div></td>';
+  var tdBars = '<td id="'+prefix+'-cmp-bars" colspan="12" style="'+tdBase+'background:'+bgColor+';padding:6px 12px;"></td>';
+  var tdEnd  = '<td colspan="2" style="background:'+bgColor+';"></td>';
+  tfoot.innerHTML = '<tr>'+tdSel+tdBars+tdEnd+'</tr>';
 }
 
 function wmUpdateCompare(prefix){
-  var sel = document.getElementById(prefix+'-cmp-sel');
+  var sel  = document.getElementById(prefix+'-cmp-sel');
   var bars = document.getElementById(prefix+'-cmp-bars');
-  if(!sel||!bars) return;
+  if(!sel || !bars) return;
   var idx = parseInt(sel.value);
-  if(isNaN(idx)){ bars.innerHTML=''; return; }
+  if(isNaN(idx)){ bars.innerHTML='<span style="color:#aaa;font-size:11px;">← Chọn để xem so sánh %</span>'; return; }
 
-  var data = prefix==='wm' ? wmLoadData() : tphMainLoad();
-  var row = data[idx];
+  var data  = prefix==='wm' ? wmLoadData() : tphMainLoad();
+  var row   = data[idx];
   if(!row){ bars.innerHTML=''; return; }
 
   var months = row.months||[];
-  var maxVal = Math.max.apply(null, months.map(function(v){return v||0;}));
+  var maxVal = Math.max.apply(null, months.map(function(v){ return v||0; }));
   if(maxVal===0){ bars.innerHTML='<span style="color:#aaa;font-size:11px;">Không có dữ liệu</span>'; return; }
 
-  var color = prefix==='wm' ? '#2d7a2d' : '#dc2626';
-  var barHtml = '<div style="display:flex;align-items:flex-end;gap:3px;height:38px;">';
-  var mLabels = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
-  months.forEach(function(v,m){
+  var color  = prefix==='wm' ? '#2d7a2d' : '#dc2626';
+  var labels = ['T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+
+  var html = '<div style="display:flex;align-items:flex-end;gap:4px;height:44px;">';
+  months.forEach(function(v, m){
     var val = v||0;
     var pct = maxVal>0 ? Math.round(val/maxVal*100) : 0;
-    var h = Math.max(pct*32/100, val>0?3:0);
-    var tip = mLabels[m]+': '+val.toLocaleString('vi-VN')+(maxVal>0?' ('+pct+'%)':'');
-    barHtml += '<div title="'+tip+'" style="display:flex;flex-direction:column;align-items:center;gap:1px;cursor:default;">';
-    barHtml += '<span style="font-size:9px;color:'+color+';font-weight:700;line-height:1;">'+(val>0?pct+'%':'')+'</span>';
-    barHtml += '<div style="width:16px;height:'+h+'px;background:'+color+';border-radius:3px 3px 0 0;opacity:'+(val>0?'0.85':'0.15')+';min-height:2px;"></div>';
-    barHtml += '<span style="font-size:9px;color:#888;line-height:1.2;">'+mLabels[m]+'</span>';
-    barHtml += '</div>';
+    var h   = maxVal>0 ? Math.max(Math.round(pct*32/100), val>0?4:0) : 0;
+    var tip = labels[m]+': '+(val>0?val.toLocaleString('vi-VN'):'0')+(maxVal>0?' ('+pct+'%)':'');
+    var isMax = val===maxVal && val>0;
+    html += '<div title="'+tip+'" style="display:flex;flex-direction:column;align-items:center;gap:1px;flex:1;cursor:default;">';
+    html += '<span style="font-size:9px;font-weight:700;color:'+color+';line-height:1;">'+(val>0?pct+'%':'')+'</span>';
+    html += '<div style="width:100%;max-width:28px;height:'+h+'px;background:'+color+';border-radius:3px 3px 0 0;'
+          + 'opacity:'+(val>0?(isMax?'1':'0.65'):'0.12')+';box-shadow:'+(isMax?'0 0 6px '+color+'88':'none')+';">'
+          + '</div>';
+    html += '<span style="font-size:9px;color:#888;line-height:1.3;">'+labels[m]+'</span>';
+    html += '</div>';
   });
-  barHtml += '</div>';
-  bars.innerHTML = barHtml;
+  html += '</div>';
+  bars.innerHTML = html;
 }
 
 function wmUpdateName(ri,v){var d=wmLoadData();if(d[ri])d[ri].name=v.trim();wmSaveData(d);}
@@ -7144,8 +7136,7 @@ function tphMainRender(){
     return '<tr style="background:'+bg+';">'+cells+'</tr>';
   }).join('');
 
-  if(tfoot) tfoot.innerHTML = '';  // no totals row
-  wmRenderCompare('tph', data);
+  wmRenderCompare('tph', data, tfoot);
 }
 
 
