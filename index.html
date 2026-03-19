@@ -6405,21 +6405,18 @@ function wmRenderCompare(prefix, data){
   var panel = document.getElementById(prefix+'-compare-panel');
   if(!panel) return;
 
-  var isWm        = (prefix === 'wm');
+  var isWm        = (prefix==='wm');
   var accentColor = isWm ? 'var(--green)' : '#b91c1c';
   var bgColor     = isWm ? '#f0fdf4'      : '#fff5f5';
   var borderColor = isWm ? '#bbf7d0'      : '#fecaca';
-  var label       = isWm ? 'nguyên liệu'  : 'thành phẩm';
+  var placeholder = isWm ? 'nguyên liệu'  : 'thành phẩm';
 
-  if(data.length === 0){
-    panel.innerHTML = '<div style="padding:8px 16px;color:#bbb;font-size:12px;">Nhập file Excel để xem so sánh %</div>';
-    return;
+  var opts = '<option value="">-- Chọn '+placeholder+' --</option>';
+  if(data && data.length>0){
+    data.forEach(function(r,i){ opts += '<option value="'+i+'">'+(r.name||'')+'</option>'; });
   }
 
-  // Always rebuild full panel so select + bars always exist
-  var opts = '<option value="">-- Chọn '+label+' --</option>';
-  data.forEach(function(r, i){ opts += '<option value="'+i+'">'+(r.name||'')+'</option>'; });
-
+  // Always render the panel with select (even if empty)
   panel.innerHTML =
     '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 16px;'
     +'background:'+bgColor+';border:1.5px solid '+borderColor+';border-radius:12px;">'
@@ -6428,7 +6425,9 @@ function wmRenderCompare(prefix, data){
     +'style="padding:5px 10px;border-radius:8px;border:1.5px solid '+borderColor+';font-size:12px;'
     +'font-family:\'Open Sans\',sans-serif;background:#fff;color:#1a1a1a;outline:none;cursor:pointer;max-width:200px;">'
     +opts+'</select>'
-    +'<div id="'+prefix+'-cmp-bars" style="flex:1;min-width:240px;"></div>'
+    +'<div id="'+prefix+'-cmp-bars" style="flex:1;min-width:240px;">'
+    +(data.length===0?'<span style="color:#bbb;font-size:11px;">Nhập file Excel để xem</span>':'')
+    +'</div>'
     +'</div>';
 }
 
@@ -7114,20 +7113,8 @@ var TPH_MAIN_KEY = 'zentea-tph-main';
 
 function tphMainLoad(){
   try{
-    // Try new key first
     var r = localStorage.getItem(branchKey(TPH_MAIN_KEY));
-    if(r){ var d=JSON.parse(r); if(Array.isArray(d)&&d.length>0) return d; }
-    // Fallback: read from old zentea-tph-excel key (products array)
-    var r2 = localStorage.getItem(branchKey(TPH_STORAGE_KEY));
-    if(r2){
-      var d2=JSON.parse(r2);
-      // d2 is {products:[...], reasons:[...]}
-      if(d2 && Array.isArray(d2.products) && d2.products.length>0){
-        // Migrate: save to new key
-        localStorage.setItem(branchKey(TPH_MAIN_KEY), JSON.stringify(d2.products));
-        return d2.products;
-      }
-    }
+    if(r){ var d=JSON.parse(r); if(Array.isArray(d)) return d; }
     return [];
   } catch(e){ return []; }
 }
