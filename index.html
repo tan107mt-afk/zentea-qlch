@@ -6376,6 +6376,7 @@ function wmRender(){
     return '<tr>'+cells+'</tr>';
   }).join('');
 
+  if(tfoot) tfoot.innerHTML = '';  // NL: no totals row
   wmRenderCompare('wm', data, tfoot);
 }
 function wmRowSum(r){ return (r.months||[]).reduce(function(a,b){return a+(b||0);},0); }
@@ -6415,8 +6416,6 @@ function wmRenderCompare(prefix, data, tfoot){
   var tdEnd  = '<td colspan="2" style="background:'+bgColor+';border-bottom:2px solid '+borderColor+';"></td>';
   compareRow.innerHTML = tdSel + tdBars + tdEnd;
 
-  // Also clear tfoot (no totals row needed)
-  if(tfoot) tfoot.innerHTML = '';
 }
 
 function wmUpdateCompare(prefix){
@@ -7125,8 +7124,11 @@ function tphMainRender(){
   if(data.length === 0){
     tbody.innerHTML = '<tr><td colspan="15" style="text-align:center;padding:32px;color:#bbb;font-size:13px;">Chưa có dữ liệu — nhấn <strong>☁ Nhập file Excel</strong> để tải lên</td></tr>';
     if(tfoot) tfoot.innerHTML = '';
+    wmRenderCompare('tph', data, tfoot);
     return;
   }
+
+  var totals = [0,0,0,0,0,0,0,0,0,0,0,0];
 
   tbody.innerHTML = displayData.map(function(row, ri){
     var bg = ri%2===0 ? '#fff' : '#fff8f8';
@@ -7134,6 +7136,7 @@ function tphMainRender(){
     var cells = '<td contenteditable="true" style="'+tdBase+'background:'+bg+';font-weight:600;min-width:200px;position:sticky;left:0;z-index:1;" onblur="tphMainUpdateName('+origIdx+',this.innerText)">'+row.name+'</td>';
     for(var m=0; m<12; m++){
       var v = row.months[m]||0;
+      if(v>0) totals[m] += v;
       cells += '<td contenteditable="true" style="'+tdBase+'background:'+bg+';text-align:center;'+(v>0?'color:#1a1a1a;':'color:#ddd;')+'" onblur="tphMainUpdateCell('+origIdx+','+m+',this.innerText)">'+(v>0?v.toLocaleString('vi-VN'):'–')+'</td>';
     }
     cells += '<td style="'+tdBase+'background:'+bg+';text-align:center;color:#888;font-size:11px;">'+(row.unit||'Ly')+'</td>';
@@ -7141,6 +7144,18 @@ function tphMainRender(){
     return '<tr style="background:'+bg+';">'+cells+'</tr>';
   }).join('');
 
+  // ── TỔNG footer ──
+  if(tfoot){
+    var ftd = 'padding:8px;font-size:12px;font-weight:700;background:#fee2e2;text-align:center;border-top:2px solid #fca5a5;';
+    var fc = '<td style="'+ftd+'text-align:left;color:#b91c1c;position:sticky;left:0;z-index:2;background:#fee2e2;">TỔNG</td>';
+    for(var m=0; m<12; m++){
+      fc += '<td style="'+ftd+'color:'+(totals[m]>0?'#b91c1c':'#ddd')+'">'+(totals[m]>0?totals[m].toLocaleString('vi-VN'):'–')+'</td>';
+    }
+    fc += '<td style="background:#fee2e2;border-top:2px solid #fca5a5;"></td><td style="background:#fee2e2;border-top:2px solid #fca5a5;"></td>';
+    tfoot.innerHTML = '<tr>'+fc+'</tr>';
+  }
+
+  // ── Compare row (thead) ──
   wmRenderCompare('tph', data, tfoot);
 }
 
