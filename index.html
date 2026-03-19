@@ -7101,8 +7101,21 @@ var TPH_MAIN_KEY = 'zentea-tph-main';
 
 function tphMainLoad(){
   try{
+    // Try new key first
     var r = localStorage.getItem(branchKey(TPH_MAIN_KEY));
-    return r ? JSON.parse(r) : [];
+    if(r){ var d=JSON.parse(r); if(Array.isArray(d)&&d.length>0) return d; }
+    // Fallback: read from old zentea-tph-excel key (products array)
+    var r2 = localStorage.getItem(branchKey(TPH_STORAGE_KEY));
+    if(r2){
+      var d2=JSON.parse(r2);
+      // d2 is {products:[...], reasons:[...]}
+      if(d2 && Array.isArray(d2.products) && d2.products.length>0){
+        // Migrate: save to new key
+        localStorage.setItem(branchKey(TPH_MAIN_KEY), JSON.stringify(d2.products));
+        return d2.products;
+      }
+    }
+    return [];
   } catch(e){ return []; }
 }
 function tphMainSave(d){
