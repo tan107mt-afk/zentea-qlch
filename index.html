@@ -406,6 +406,25 @@ footer strong{color:var(--green-light);}
 
 #acc-menu.open{ display:block !important; animation:pgIn .15s ease both; }
 </style>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDKbXU5VR4o8nCz5rQlOXqnYWSyhHD5p1I",
+  authDomain: "zentea-qlch.firebaseapp.com",
+  databaseURL: "https://zentea-qlch-default-rtdb.firebaseio.com",
+  projectId: "zentea-qlch",
+  storageBucket: "zentea-qlch.firebasestorage.app",
+  messagingSenderId: "1085565734491",
+  appId: "1:1085565734491:web:904b1ec407284c9a39b97e"
+};
+let fbApp=null,fbAuth=null,fbDb=null;
+try{fbApp=firebase.initializeApp(FIREBASE_CONFIG);fbAuth=firebase.auth();fbDb=firebase.database();window.fbApp=fbApp;window.fbAuth=fbAuth;window.fbDb=fbDb;}catch(e){}
+window.FB_CONFIGURED=true;
+</script>
 </head>
 <body>
 
@@ -7505,6 +7524,46 @@ function wmSyncOneDrive(){
   }, 60000);
 }
 
+
+
+
+// ══ FIREBASE AUTH FUNCTIONS ══
+const ACCOUNTS_KEY_FB = 'zentea-accounts';
+async function apiGetAccounts(){
+  if(window.fbDb){try{const s=await window.fbDb.ref('accounts').once('value');const v=s.val();if(v){const l=Object.values(v);try{localStorage.setItem(ACCOUNTS_KEY_FB,JSON.stringify(l));}catch(e){}return l;}return[];}catch(e){}}
+  try{const s=localStorage.getItem(ACCOUNTS_KEY_FB);if(s)return JSON.parse(s);}catch(e){}return[];
+}
+async function apiSaveAccounts(accounts){
+  if(window.fbDb){try{const o={};accounts.forEach(a=>{o[a.id]=a;});await window.fbDb.ref('accounts').set(o);try{localStorage.setItem(ACCOUNTS_KEY_FB,JSON.stringify(accounts));}catch(e){}return;}catch(e){}}
+  try{localStorage.setItem(ACCOUNTS_KEY_FB,JSON.stringify(accounts));}catch(e){}
+}
+async function loginWithGoogle(){
+  if(!window.fbAuth){alert('Firebase chưa cấu hình');return;}
+  const btn=document.getElementById('google-login-btn');
+  if(btn){btn.disabled=true;btn.style.opacity='0.7';}
+  try{
+    const provider=new firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({prompt:'select_account'});
+    const isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+    if(isMobile){await window.fbAuth.signInWithRedirect(provider);return;}
+    const result=await window.fbAuth.signInWithPopup(provider);
+    const gUser=result.user;
+    const accounts=await apiGetAccounts();
+    let found=accounts.find(a=>a.googleUid===gUser.uid||a.email===gUser.email);
+    if(!found){found={id:'g-'+gUser.uid,googleUid:gUser.uid,email:gUser.email,username:gUser.email.split('@')[0].replace(/[^a-z0-9_.]/gi,'').toLowerCase(),fullname:gUser.displayName||gUser.email,password:'',role:'staff',branch:'global',createdAt:new Date().toISOString()};accounts.push(found);await apiSaveAccounts(accounts);}
+    selectedBranch=found.branch||'global';
+    loginSuccess({user:found.username,fullname:found.fullname,branch:found.branch||'global',role:found.role||'staff',id:found.id,email:found.email,avatar:gUser.photoURL||''},false);
+  }catch(err){if(err.code!=='auth/popup-closed-by-user')alert('Lỗi đăng nhập Google: '+(err.message||err.code));}
+  finally{if(btn){btn.disabled=false;btn.style.opacity='1';}}
+}
+if(window.fbAuth){
+  window.fbAuth.getRedirectResult().then(async result=>{
+    if(result&&result.user){const gUser=result.user;const accounts=await apiGetAccounts();let found=accounts.find(a=>a.googleUid===gUser.uid||a.email===gUser.email);if(!found){found={id:'g-'+gUser.uid,googleUid:gUser.uid,email:gUser.email,username:gUser.email.split('@')[0].replace(/[^a-z0-9_.]/gi,'').toLowerCase(),fullname:gUser.displayName||gUser.email,password:'',role:'staff',branch:'global',createdAt:new Date().toISOString()};accounts.push(found);await apiSaveAccounts(accounts);}selectedBranch=found.branch||'global';loginSuccess({user:found.username,fullname:found.fullname,branch:found.branch||'global',role:found.role||'staff',id:found.id,email:found.email,avatar:gUser.photoURL||''},false);}
+  }).catch(e=>{});
+  window.fbAuth.onAuthStateChanged(async gUser=>{
+    if(gUser&&!isLoggedIn){const accounts=await apiGetAccounts();const found=accounts.find(a=>a.googleUid===gUser.uid||a.email===gUser.email);if(found){selectedBranch=found.branch||'global';loginSuccess({user:found.username,fullname:found.fullname,branch:found.branch||'global',role:found.role||'staff',id:found.id,email:found.email,avatar:gUser.photoURL||''},true);}}
+  });
+}
 
 </script>
 </body>
