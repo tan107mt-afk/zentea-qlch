@@ -25,6 +25,24 @@ const FIREBASE_CONFIG = {
   appId:             "1:1085565734491:web:904b1ec407284c9a39b97e"
 };
 const FB_CONFIGURED = true; // Real Firebase config
+
+// ── Danh sách mục menu có thể phân quyền ──
+const NAV_SECTIONS = [
+  {id:'checklist',    label:'✅ Checklist'},
+  {id:'contacts',     label:'📞 Liên hệ'},
+  {id:'salary',       label:'💰 Lương'},
+  {id:'violations',   label:'⚠️ Vi phạm'},
+  {id:'recipes',      label:'🧋 Công thức'},
+  {id:'employees',    label:'👥 Nhân viên'},
+  {id:'schedule',     label:'📅 Lịch làm'},
+  {id:'tinhhung',     label:'📊 Tình hàng'},
+  {id:'soche',        label:'📋 Sổ chế'},
+  {id:'banh',         label:'🥐 Bánh'},
+  {id:'hr-eval',      label:'⭐ Đánh giá'},
+  {id:'waste-material',label:'♻️ Hao phí'},
+  {id:'report-overview',label:'📈 Báo cáo'},
+  {id:'luu-tru',      label:'📁 Lưu trữ'},
+];
 // ── SUPERADMIN: Tài khoản Google của chủ hệ thống ──
 const SUPERADMIN_EMAIL = 'tan107.mt@gmail.com'; // Thay bằng email Google của bạn
 let fbApp = null, fbAuth = null, fbDb = null;
@@ -661,6 +679,27 @@ button[style*="border-radius:50%"]:not(.zeye):not(.eye):not(.modal-close){
 }
 .pending-logout:hover{background:#d1d5db;}
 
+
+/* ── Permission Checkboxes ── */
+.perm-panel{
+  background:#f8fafc;border:1.5px solid #e5e7eb;border-radius:12px;
+  padding:14px 16px;margin-top:10px;
+}
+.perm-title{font-size:11px;font-weight:800;letter-spacing:1px;color:#6b7280;
+  text-transform:uppercase;margin-bottom:10px;}
+.perm-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.perm-item{display:flex;align-items:center;gap:7px;cursor:pointer;
+  padding:5px 8px;border-radius:8px;transition:.15s;}
+.perm-item:hover{background:#f0fdf4;}
+.perm-item input[type=checkbox]{
+  width:15px;height:15px;accent-color:var(--green);cursor:pointer;flex-shrink:0;
+}
+.perm-item label{font-size:12px;font-weight:600;color:#374151;cursor:pointer;}
+.perm-select-all{
+  font-size:11px;font-weight:700;color:var(--green);cursor:pointer;
+  margin-bottom:8px;display:inline-block;
+}
+.perm-select-all:hover{text-decoration:underline;}
 /* ── Role badges ── */
 .role-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;}
 .role-superadmin{background:#fef3c7;color:#92400e;}
@@ -4401,6 +4440,16 @@ function loginSuccess(account, fromSession){
   // Hide hero, show main app
   hide('home');
   document.body.classList.add('logged-in');
+  // Phân quyền menu: ẩn/hiện nav items theo allowedSections
+  const _allowed = account.allowedSections || null;
+  document.querySelectorAll('.nav-item[data-target]').forEach(btn => {
+    const target = btn.dataset.target;
+    if(!_allowed || account.role === 'superadmin' || account.role === 'admin') {
+      btn.style.display = ''; // superadmin/admin thấy tất cả
+    } else {
+      btn.style.display = (_allowed.includes(target)) ? '' : 'none';
+    }
+  });
   document.querySelector('.stats-bar').style.display = 'none';
   // Show checklist page after login
   showPage('checklist');
@@ -10066,8 +10115,15 @@ async function refreshApprovalList(){
   if(pending.length > 0){
     pending.forEach(req => {
       const initials = (req.fullname||'?').split(' ').map(w=>w[0]).join('').toUpperCase().substring(0,2);
+      // Build permission checkboxes
+      const permBoxes = NAV_SECTIONS.map(s =>
+        `<label class="perm-item">
+          <input type="checkbox" class="perm-cb-${req.id}" value="${s.id}" checked>
+          <label>${s.label}</label>
+        </label>`
+      ).join('');
       html += `<div class="req-card">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
           <div class="member-avatar">${req.avatar ? `<img src="${req.avatar}">` : initials}</div>
           <div>
             <div class="member-name">👤 ${req.fullname}</div>
@@ -10075,14 +10131,21 @@ async function refreshApprovalList(){
             <div class="req-time" style="margin-top:2px;">Yêu cầu: ${req.requestedAt ? new Date(req.requestedAt).toLocaleString('vi-VN') : ''}</div>
           </div>
         </div>
-        <div class="req-actions">
+        <div class="req-actions" style="margin-bottom:10px;">
           <select class="req-role-sel" id="role-${req.id}">
             <option value="staff">Nhân viên</option>
-            <option value="admin">Quản lý</option>
+            <option value="admin">Quản lý (thấy tất cả)</option>
             <option value="viewer">Xem báo cáo</option>
           </select>
           <button class="btn-approve" onclick="approveAccount('${req.id}')">✅ Duyệt</button>
           <button class="btn-reject" onclick="rejectAccount('${req.id}')">❌ Từ chối</button>
+        </div>
+        <div class="perm-panel">
+          <div class="perm-title">📋 Phân quyền menu</div>
+          <span class="perm-select-all" onclick="permToggleAll('${req.id}',true)">Chọn tất cả</span>
+          &nbsp;·&nbsp;
+          <span class="perm-select-all" onclick="permToggleAll('${req.id}',false)">Bỏ tất cả</span>
+          <div class="perm-grid">${permBoxes}</div>
         </div>
       </div>`;
     });
@@ -10149,6 +10212,7 @@ async function renderMembersList(){
             <option value="admin"   ${acc.role==='admin'   ?'selected':''}>Quản lý</option>
             <option value="viewer"  ${acc.role==='viewer'  ?'selected':''}>Xem báo cáo</option>
           </select>
+          <button class="btn-approve" style="padding:5px 10px;font-size:11px;" onclick="openPermEdit('${acc.id}')" title="Phân quyền menu">🔐</button>
           <button class="btn-remove" onclick="revokeAccount('${acc.id}')" title="Thu hồi quyền">🚫</button>`}
         </div>
       </div>`;
@@ -10173,13 +10237,21 @@ async function approveAccount(id){
   const acc = accounts.find(a => a.id === id);
   if(!acc) return;
   const roleEl = document.getElementById('role-' + id);
+  const role = roleEl ? roleEl.value : 'staff';
   acc.status = 'approved';
-  acc.role = roleEl ? roleEl.value : 'staff';
+  acc.role = role;
   acc.approvedAt = new Date().toISOString();
+  // Lưu allowedSections (chỉ với role staff/viewer, admin thấy tất)
+  if(role !== 'admin' && role !== 'superadmin'){
+    const cbs = document.querySelectorAll('.perm-cb-' + id + ':checked');
+    acc.allowedSections = [...cbs].map(cb => cb.value);
+  } else {
+    acc.allowedSections = null; // admin thấy tất cả
+  }
   await apiSaveAccounts(accounts);
-  // Xóa pending notify
   if(fbDb) try { await fbDb.ref('pendingNotify/' + acc.googleUid).remove(); } catch(e){}
   await refreshApprovalList();
+  showToast('✅ Đã duyệt tài khoản', acc.fullname || acc.email);
 }
 
 async function rejectAccount(id){
@@ -10389,6 +10461,68 @@ function docRender() {
       </div>
     </div>`;
   }).join('');
+}
+
+
+function permToggleAll(id, state) {
+  document.querySelectorAll('.perm-cb-' + id).forEach(cb => cb.checked = state);
+}
+
+async function openPermEdit(id) {
+  const accounts = await apiGetAccounts();
+  const acc = accounts.find(a => a.id === id);
+  if(!acc) return;
+
+  const current = acc.allowedSections || NAV_SECTIONS.map(s => s.id);
+  const permBoxes = NAV_SECTIONS.map(s =>
+    `<label class="perm-item">
+      <input type="checkbox" class="perm-edit-cb" value="${s.id}" ${current.includes(s.id)?'checked':''}>
+      <label>${s.label}</label>
+    </label>`
+  ).join('');
+
+  const html = `<div style="padding:20px;">
+    <div style="font-size:14px;font-weight:700;margin-bottom:4px;">📋 Phân quyền: ${acc.fullname}</div>
+    <div style="font-size:12px;color:#9ca3af;margin-bottom:12px;">${acc.email}</div>
+    <span class="perm-select-all" onclick="document.querySelectorAll('.perm-edit-cb').forEach(c=>c.checked=true)">Chọn tất cả</span>
+    &nbsp;·&nbsp;
+    <span class="perm-select-all" onclick="document.querySelectorAll('.perm-edit-cb').forEach(c=>c.checked=false)">Bỏ tất cả</span>
+    <div class="perm-grid" style="margin-top:10px;">${permBoxes}</div>
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn-approve" style="flex:1;" onclick="savePermEdit('${id}')">💾 Lưu quyền</button>
+      <button class="btn-reject" onclick="closePerm()">Hủy</button>
+    </div>
+  </div>`;
+
+  // Show in a modal overlay
+  let overlay = document.getElementById('perm-edit-overlay');
+  if(!overlay){
+    overlay = document.createElement('div');
+    overlay.id = 'perm-edit-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;';
+    overlay.onclick = function(e){ if(e.target===this) closePerm(); };
+    document.body.appendChild(overlay);
+  }
+  overlay.innerHTML = `<div style="background:#fff;border-radius:20px;max-width:420px;width:90%;max-height:90vh;overflow-y:auto;">${html}</div>`;
+  overlay.style.display = 'flex';
+  overlay._editId = id;
+}
+
+function closePerm(){
+  const o = document.getElementById('perm-edit-overlay');
+  if(o) o.style.display = 'none';
+}
+
+async function savePermEdit(id){
+  const accounts = await apiGetAccounts();
+  const acc = accounts.find(a => a.id === id);
+  if(!acc) return;
+  const cbs = document.querySelectorAll('.perm-edit-cb:checked');
+  acc.allowedSections = [...cbs].map(cb => cb.value);
+  await apiSaveAccounts(accounts);
+  closePerm();
+  await renderMembersList();
+  showToast('✅ Đã cập nhật quyền', acc.fullname || acc.email);
 }
 
 </script>
