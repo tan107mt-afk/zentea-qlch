@@ -777,6 +777,68 @@ button[style*="border-radius:50%"]:not(.zeye):not(.eye):not(.modal-close){
 }
 .btn-change-role:hover{background:#e5e7eb;}
 .member-joined{font-size:10px;color:#9ca3af;margin-top:2px;}
+
+/* ── Lưu trữ tài liệu ── */
+.doc-upload-zone{
+  border:2.5px dashed var(--border);border-radius:16px;
+  padding:36px 24px;text-align:center;cursor:pointer;
+  transition:.2s;background:#fafff8;
+}
+.doc-upload-zone:hover,.doc-upload-zone.drag-over{
+  border-color:var(--green-light);background:#f0fdf4;
+}
+.doc-upload-icon{font-size:48px;margin-bottom:12px;}
+.doc-upload-title{font-size:15px;font-weight:700;color:var(--dark);margin-bottom:6px;}
+.doc-upload-sub{font-size:12px;color:#9ca3af;}
+.doc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;margin-top:24px;}
+.doc-card{
+  background:#fff;border-radius:14px;padding:16px;
+  border:1.5px solid var(--border);
+  box-shadow:0 2px 8px rgba(45,122,45,.06);
+  transition:.2s;cursor:pointer;position:relative;
+}
+.doc-card:hover{border-color:var(--green-light);transform:translateY(-2px);box-shadow:0 6px 20px rgba(45,122,45,.12);}
+.doc-icon{font-size:36px;margin-bottom:10px;display:block;}
+.doc-name{font-size:13px;font-weight:700;color:var(--dark);margin-bottom:4px;word-break:break-word;line-height:1.3;}
+.doc-meta{font-size:11px;color:#9ca3af;margin-bottom:10px;}
+.doc-actions{display:flex;gap:6px;}
+.btn-doc-dl{
+  flex:1;padding:6px 0;background:var(--green);color:#fff;border:none;
+  border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;
+  font-family:'Open Sans',sans-serif;
+}
+.btn-doc-dl:hover{background:#3d9630;}
+.btn-doc-del{
+  padding:6px 10px;background:#fee2e2;color:#991b1b;border:none;
+  border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;
+}
+.btn-doc-del:hover{background:#fca5a5;}
+.doc-type-badge{
+  position:absolute;top:12px;right:12px;
+  font-size:9px;font-weight:800;letter-spacing:.5px;
+  padding:2px 7px;border-radius:20px;text-transform:uppercase;
+}
+.badge-xlsx,.badge-xls{background:#d1fae5;color:#065f46;}
+.badge-docx,.badge-doc{background:#dbeafe;color:#1e40af;}
+.badge-pptx,.badge-ppt{background:#fef3c7;color:#92400e;}
+.badge-pdf{background:#fee2e2;color:#991b1b;}
+.badge-other{background:#f3f4f6;color:#374151;}
+.doc-empty{text-align:center;padding:40px 0;color:#9ca3af;font-size:14px;}
+.doc-search{
+  width:100%;padding:10px 16px;border:1.5px solid var(--border);
+  border-radius:12px;font-size:13px;font-family:'Open Sans',sans-serif;
+  background:#fff;outline:none;margin-bottom:16px;
+}
+.doc-search:focus{border-color:var(--green);}
+.doc-filter-tabs{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.doc-filter-btn{
+  padding:5px 14px;border-radius:20px;border:1.5px solid var(--border);
+  background:#fff;font-size:12px;font-weight:600;cursor:pointer;
+  font-family:'Open Sans',sans-serif;transition:.15s;color:#374151;
+}
+.doc-filter-btn.active,.doc-filter-btn:hover{
+  background:var(--green);border-color:var(--green);color:#fff;
+}
 </style>
 </head>
 <body>
@@ -849,10 +911,7 @@ button[style*="border-radius:50%"]:not(.zeye):not(.eye):not(.modal-close){
       <span class="nav-item-label">Vi phạm</span><span class="nav-active-dot"></span>
     </button>
 
-    <button type="button" class="nav-item" data-target="training" data-tip="Tài liệu đào tạo">
-      <span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>
-      <span class="nav-item-label">Đào tạo</span><span class="nav-active-dot"></span>
-    </button>
+    
 
     <button type="button" class="nav-item" data-target="recipes" data-tip="Công thức pha chế">
       <span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M10 2v3M14 2v3M8 10h8M6 5h12l-1.5 9H7.5L6 5z"/><path d="M9 19h6M12 15v4"/></svg></span>
@@ -871,20 +930,14 @@ button[style*="border-radius:50%"]:not(.zeye):not(.eye):not(.modal-close){
       <span class="nav-item-label">Lịch làm việc</span><span class="nav-active-dot"></span>
     </button>
 
-    <button type="button" class="nav-item" data-target="cleaning" data-tip="Lịch vệ sinh định kỳ">
-      <span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M9.5 2A2.5 2.5 0 007 4.5V5H5a2 2 0 00-2 2v11a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2h-2v-.5A2.5 2.5 0 0014.5 2h-5z"/><path d="M7 10h10M7 14h6"/></svg></span>
-      <span class="nav-item-label">Vệ sinh</span><span class="nav-active-dot"></span>
-    </button>
+    
 
 
     <button type="button" class="nav-item" data-target="tinhhung" data-tip="Tình huống khách hàng">
       <span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>
       <span class="nav-item-label">Tình huống</span><span class="nav-active-dot"></span>
     </button>
-    <button type="button" class="nav-item" data-target="vstb" data-tip="Vệ sinh thiết bị">
-      <span class="nav-item-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></span>
-      <span class="nav-item-label">VS Thiết Bị</span><span class="nav-active-dot"></span>
-    </button>
+    
     <button type="button" class="nav-item" data-target="soche" data-tip="Quy trình sơ chế">
       <span class="nav-item-icon"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg></span>
       <span class="nav-item-label">Sơ chế</span><span class="nav-active-dot"></span>
@@ -904,6 +957,11 @@ button[style*="border-radius:50%"]:not(.zeye):not(.eye):not(.modal-close){
     </button>    <button type="button" class="nav-item" data-target="report-overview" data-tip="Báo cáo tổng quan theo tháng">
       <span class="nav-item-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/><path d="M7 6h.01M12 6h.01"/></svg></span>
       <span class="nav-item-label">Tổng quan</span><span class="nav-active-dot"></span>
+    </button>
+
+    <button type="button" class="nav-item" data-target="luu-tru" data-tip="Lưu trữ tài liệu">
+      <span class="nav-item-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/><line x1="12" y1="11" x2="12" y2="17"/><polyline points="9 14 12 17 15 14"/></svg></span>
+      <span class="nav-item-label">Lưu trữ</span><span class="nav-active-dot"></span>
     </button>
     <!-- Nav sort button (always last inside nav-items) -->
     <div class="nav-divider"></div>
@@ -2861,6 +2919,53 @@ BẢO QUẢN: Ghi tên NV cắt, bảo quản lạnh, HSD 7 ngày lúc 15h hủy
   <div id="toast-sub" class="toast-sub" style="font-size:12px;color:#888;font-weight:500;"></div>
 </div>
 
+<!-- LƯU TRỮ TÀI LIỆU -->
+<div class="acc-section" id="luu-tru">
+  <div class="panel-titlebar">
+    <span class="panel-emoji">📁</span>
+    <div>
+      <div class="panel-tag">Tiện ích</div>
+      <div class="panel-title">Lưu Trữ Tài Liệu</div>
+    </div>
+  </div>
+  <div class="acc-body">
+    <div class="acc-inner">
+
+      <!-- Upload zone -->
+      <div class="doc-upload-zone" id="doc-upload-zone" onclick="document.getElementById('doc-file-input').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="docHandleDrop(event)">
+        <div class="doc-upload-icon">📂</div>
+        <div class="doc-upload-title">Kéo thả tài liệu vào đây</div>
+        <div class="doc-upload-sub">Hỗ trợ: Excel (.xlsx, .xls), Word (.docx, .doc), PowerPoint (.pptx, .ppt), PDF</div>
+        <div class="doc-upload-sub" style="margin-top:8px;">hoặc <span style="color:var(--green);font-weight:700;">nhấn để chọn file</span></div>
+      </div>
+      <input type="file" id="doc-file-input" style="display:none" multiple
+        accept=".xlsx,.xls,.docx,.doc,.pptx,.ppt,.pdf"
+        onchange="docHandleFiles(this.files)">
+
+      <!-- Search & Filter -->
+      <div style="margin-top:20px;">
+        <input type="text" class="doc-search" id="doc-search" placeholder="🔍 Tìm kiếm tài liệu..." oninput="docRender()">
+        <div class="doc-filter-tabs">
+          <button class="doc-filter-btn active" onclick="docSetFilter('all',this)">Tất cả</button>
+          <button class="doc-filter-btn" onclick="docSetFilter('excel',this)">📊 Excel</button>
+          <button class="doc-filter-btn" onclick="docSetFilter('word',this)">📝 Word</button>
+          <button class="doc-filter-btn" onclick="docSetFilter('ppt',this)">📊 PowerPoint</button>
+          <button class="doc-filter-btn" onclick="docSetFilter('pdf',this)">📄 PDF</button>
+        </div>
+      </div>
+
+      <!-- File list -->
+      <div class="doc-grid" id="doc-grid"></div>
+      <div class="doc-empty" id="doc-empty" style="display:none">📭 Chưa có tài liệu nào. Hãy tải lên!</div>
+
+    </div>
+  </div>
+</div>
+
+
 <!-- Content Edit Modal (training, salary, checklist, etc.) -->
 <div id="content-edit-modal" style="display:none;position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.55);backdrop-filter:blur(4px);align-items:flex-start;justify-content:center;padding:20px;overflow-y:auto;">
   <div style="background:#fff;border-radius:20px;max-width:720px;width:100%;margin:auto;box-shadow:0 24px 60px rgba(0,0,0,.3);">
@@ -3078,6 +3183,8 @@ function showPage(id){
   document.querySelectorAll('.acc-section').forEach(s => {
     s.classList.remove('page-active');
   });
+  // Hook: render doc list khi vào Lưu trữ
+  if(id === 'luu-tru' && typeof docRender === 'function') setTimeout(docRender, 50);
   // Going home
   if(id === 'home'){
     if(hero) hero.style.display = 'flex';
@@ -10118,6 +10225,165 @@ async function checkPendingBadge(){
       if(badge) badge.textContent = count > 0 ? '(' + count + ')' : '';
     });
   }
+}
+
+
+
+// ══════════════════════════════════════════════════════════════
+// LƯU TRỮ TÀI LIỆU
+// ══════════════════════════════════════════════════════════════
+const DOC_STORAGE_KEY = 'zentea-docs-v1';
+let _docFilter = 'all';
+
+function docGetList() {
+  try { return JSON.parse(localStorage.getItem(DOC_STORAGE_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function docSaveList(list) {
+  localStorage.setItem(DOC_STORAGE_KEY, JSON.stringify(list));
+}
+
+function docGetIcon(ext) {
+  const icons = { xlsx:'📊', xls:'📊', docx:'📝', doc:'📝',
+                  pptx:'📊', ppt:'📊', pdf:'📄' };
+  return icons[ext] || '📎';
+}
+
+function docGetTypeClass(ext) {
+  if(['xlsx','xls'].includes(ext)) return 'excel';
+  if(['docx','doc'].includes(ext)) return 'word';
+  if(['pptx','ppt'].includes(ext)) return 'ppt';
+  if(ext === 'pdf') return 'pdf';
+  return 'other';
+}
+
+function docFormatSize(bytes) {
+  if(bytes < 1024) return bytes + ' B';
+  if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1024/1024).toFixed(2) + ' MB';
+}
+
+function docSetFilter(type, btn) {
+  _docFilter = type;
+  document.querySelectorAll('.doc-filter-btn').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  docRender();
+}
+
+function docHandleDrop(event) {
+  event.preventDefault();
+  document.getElementById('doc-upload-zone').classList.remove('drag-over');
+  const files = event.dataTransfer.files;
+  if(files.length) docHandleFiles(files);
+}
+
+function docHandleFiles(files) {
+  const allowed = ['xlsx','xls','docx','doc','pptx','ppt','pdf'];
+  let addedCount = 0;
+  const list = docGetList();
+
+  Array.from(files).forEach(file => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if(!allowed.includes(ext)) {
+      showToast('⚠️ File không hỗ trợ: ' + file.name, 'Chỉ nhận Excel, Word, PowerPoint, PDF');
+      return;
+    }
+    // Check duplicate
+    if(list.find(d => d.name === file.name && d.size === file.size)) {
+      showToast('⚠️ File đã tồn tại', file.name);
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const doc = {
+        id: 'doc-' + Date.now() + '-' + Math.random().toString(36).substr(2,6),
+        name: file.name,
+        ext: ext,
+        size: file.size,
+        type: docGetTypeClass(ext),
+        data: e.target.result,
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: (typeof currentUser !== 'undefined' && currentUser) ? (currentUser.fullname || currentUser.user) : 'Unknown'
+      };
+      const currentList = docGetList();
+      currentList.unshift(doc);
+      docSaveList(currentList);
+      addedCount++;
+      docRender();
+      showToast('✅ Đã lưu tài liệu', file.name);
+    };
+    reader.readAsDataURL(file);
+  });
+  // Reset input
+  const inp = document.getElementById('doc-file-input');
+  if(inp) inp.value = '';
+}
+
+function docDownload(id) {
+  const list = docGetList();
+  const doc = list.find(d => d.id === id);
+  if(!doc) return;
+  const a = document.createElement('a');
+  a.href = doc.data;
+  a.download = doc.name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  showToast('⬇️ Đang tải xuống', doc.name);
+}
+
+function docDelete(id) {
+  const list = docGetList();
+  const doc = list.find(d => d.id === id);
+  if(!doc) return;
+  if(!confirm('Xóa tài liệu "' + doc.name + '"?')) return;
+  const newList = list.filter(d => d.id !== id);
+  docSaveList(newList);
+  docRender();
+  showToast('🗑️ Đã xóa', doc.name);
+}
+
+function docRender() {
+  const grid = document.getElementById('doc-grid');
+  const emptyEl = document.getElementById('doc-empty');
+  if(!grid) return;
+
+  const searchVal = (document.getElementById('doc-search')?.value || '').toLowerCase();
+  let list = docGetList();
+
+  // Filter by type
+  if(_docFilter !== 'all') {
+    list = list.filter(d => d.type === _docFilter);
+  }
+  // Filter by search
+  if(searchVal) {
+    list = list.filter(d => d.name.toLowerCase().includes(searchVal));
+  }
+
+  if(!list.length) {
+    grid.innerHTML = '';
+    if(emptyEl) emptyEl.style.display = 'block';
+    return;
+  }
+  if(emptyEl) emptyEl.style.display = 'none';
+
+  grid.innerHTML = list.map(doc => {
+    const icon = docGetIcon(doc.ext);
+    const badgeClass = 'badge-' + doc.ext;
+    const date = doc.uploadedAt ? new Date(doc.uploadedAt).toLocaleDateString('vi-VN') : '';
+    const size = docFormatSize(doc.size || 0);
+    return `<div class="doc-card">
+      <span class="doc-type-badge ${badgeClass}">${doc.ext.toUpperCase()}</span>
+      <span class="doc-icon">${icon}</span>
+      <div class="doc-name">${doc.name}</div>
+      <div class="doc-meta">${size} · ${date}</div>
+      <div class="doc-actions">
+        <button class="btn-doc-dl" onclick="docDownload('${doc.id}')">⬇️ Tải về</button>
+        <button class="btn-doc-del" onclick="docDelete('${doc.id}')">🗑️</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 </script>
