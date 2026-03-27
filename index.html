@@ -4441,13 +4441,16 @@ function loginSuccess(account, fromSession){
   hide('home');
   document.body.classList.add('logged-in');
   // Phân quyền menu: ẩn/hiện nav items theo allowedSections
-  const _allowed = account.allowedSections || null;
+  const _allowed = account.allowedSections;
+  const _role = account.role || 'staff';
   document.querySelectorAll('.nav-item[data-target]').forEach(btn => {
     const target = btn.dataset.target;
-    if(!_allowed || account.role === 'superadmin' || account.role === 'admin') {
+    if(_role === 'superadmin' || _role === 'admin') {
       btn.style.display = ''; // superadmin/admin thấy tất cả
+    } else if(_allowed && Array.isArray(_allowed) && _allowed.length > 0) {
+      btn.style.display = _allowed.includes(target) ? '' : 'none';
     } else {
-      btn.style.display = (_allowed.includes(target)) ? '' : 'none';
+      btn.style.display = 'none'; // Không có quyền nào → ẩn hết
     }
   });
   document.querySelector('.stats-bar').style.display = 'none';
@@ -5643,6 +5646,19 @@ async function checkSession(){
     if(!s) return;
     const u = JSON.parse(s);
     selectedBranch = u.branch || 'global';
+    // Luôn đọc lại allowedSections mới nhất từ DB
+    if(u.email || u.id){
+      try {
+        const accounts = await apiGetAccounts();
+        const fresh = accounts.find(a => a.id === u.id || a.email === u.email);
+        if(fresh){
+          u.allowedSections = fresh.allowedSections || null;
+          u.role = fresh.role || u.role;
+          // Cập nhật session với data mới
+          sessionStorage.setItem('zentea-session', JSON.stringify(u));
+        }
+      } catch(e){}
+    }
     await new Promise(r => setTimeout(r, 50));
     loginSuccess(u, true);
   } catch(e){}
