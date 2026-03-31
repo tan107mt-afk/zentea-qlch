@@ -641,4 +641,4 @@ async function savePermEdit(id){
 // ══════════════════════════════════════════════════════════════
 // DOCUMENT VIEWER
 // ══════════════════════════════════════════════════════════════
-let _viewerCurrentDoc = null;
+// _viewerCurrentDoc declared in config.js
