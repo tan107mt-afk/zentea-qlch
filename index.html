@@ -4802,6 +4802,8 @@ function openRecipeDetail(id){
 function loginSuccess(account, fromSession){
   isLoggedIn = true;
   currentUser = account;
+  // Set selectedBranch từ account
+  if(account.branch) selectedBranch = account.branch;
   // Ẩn loading splash nếu còn hiển thị
   const loader = document.getElementById('app-loading');
   if(loader && loader.style.display !== 'none'){
@@ -11473,7 +11475,13 @@ function sidebarSetup(account){
       const currentBranch = account.branch || '';
       const targetBranch = allowedSt.includes(currentBranch) ? currentBranch : (firstAllowed || allowedSt[0]);
       storeSel.value = targetBranch;
-      selectedBranch = targetBranch; // ← CẬP NHẬT selectedBranch ngay!
+      selectedBranch = targetBranch;
+      // Sync currentUser.branch và localStorage
+      if(currentUser) currentUser.branch = targetBranch;
+      try {
+        const _sess = JSON.parse(localStorage.getItem('zentea-session')||'{}');
+        if(_sess.id === account.id){ _sess.branch = targetBranch; localStorage.setItem('zentea-session', JSON.stringify(_sess)); }
+      } catch(e){}
     }
   }
 
