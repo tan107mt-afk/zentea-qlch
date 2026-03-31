@@ -6,17 +6,65 @@
 // ─── Branch-scoped storage key helper ──────────────────────────
 // All per-branch data is prefixed with the branch ID so stores never share data
 function branchKey(key){
-  // Nếu đang chọn chi nhánh cụ thể (cn01..cn17) → dùng branch ID làm namespace
-  // để data được chia theo chi nhánh (nhiều user cùng quản lý 1 chi nhánh)
-  // Nếu không có chi nhánh cụ thể → dùng username (backward compatible)
-  const ns = (typeof selectedBranch !== 'undefined' && selectedBranch && selectedBranch !== 'global')
+  // Namespace logic:
+  // 1. Nếu đang chọn chi nhánh cụ thể (cn01..cn17):
+  //    - Admin/Superadmin: dùng branch ID → data chia sẻ cho chi nhánh đó
+  //    - Staff: dùng branch ID → đọc data được admin nhập cho chi nhánh đó
+  // 2. Nếu 'global' hoặc không có branch:
+  //    - Dùng username → backward compatible với data cũ
+  const hasBranch = typeof selectedBranch !== 'undefined' 
+    && selectedBranch 
+    && selectedBranch !== 'global'
+    && /^cn\d+$/.test(selectedBranch); // chỉ cn01-cn17 pattern
+  
+  const ns = hasBranch
     ? selectedBranch
     : (currentUser && currentUser.user ? currentUser.user : 'global');
   return ns + '-' + key;
 }
 
 // Called once after a successful login to load all branch data
+
+// Hiển thị trạng thái "Chi nhánh chưa có dữ liệu" cho section
+function showBranchEmptyState(sectionId, dataLabel){
+  if(!selectedBranch || selectedBranch === 'global') return;
+  const section = document.getElementById(sectionId);
+  if(!section) return;
+  
+  // Kiểm tra nếu section đang active
+  if(!section.classList.contains('page-active')) return;
+  
+  const branchName = STORES[selectedBranch] || selectedBranch;
+  let emptyEl = section.querySelector('.branch-empty-state');
+  if(!emptyEl){
+    emptyEl = document.createElement('div');
+    emptyEl.className = 'branch-empty-state';
+    emptyEl.style.cssText = 'text-align:center;padding:40px 20px;color:#9ca3af;';
+    emptyEl.innerHTML = `
+      <div style="font-size:40px;margin-bottom:12px;">📭</div>
+      <div style="font-size:15px;font-weight:700;color:#374151;margin-bottom:6px;">
+        Chưa có dữ liệu cho ${branchName}
+      </div>
+      <div style="font-size:13px;line-height:1.6;">
+        ${dataLabel || 'Dữ liệu'} của chi nhánh này chưa được nhập.<br>
+        ${currentUser?.role === 'staff' ? 'Liên hệ quản lý để cập nhật.' : 'Hãy thêm dữ liệu cho chi nhánh này.'}
+      </div>
+    `;
+    // Chèn sau panel-titlebar
+    const titlebar = section.querySelector('.panel-titlebar');
+    if(titlebar) titlebar.after(emptyEl);
+    else section.prepend(emptyEl);
+  }
+}
+
+// Xóa empty state khi có data
+function hideBranchEmptyState(sectionId){
+  const section = document.getElementById(sectionId);
+  section?.querySelector('.branch-empty-state')?.remove();
+}
 async function loadBranchData(){
+  // Nếu đang ở branch cụ thể (cn01-cn17), cập nhật banner chi nhánh
+  _updateBranchBanner();
   await loadContacts();
   await loadEmployees();
   await loadShifts();
@@ -24,6 +72,47 @@ async function loadBranchData(){
   await loadSchedule();
   await loadCleaning();
   await loadCustomRecipes();
+}
+
+function _updateBranchBanner(){
+  const userNameEl = document.getElementById('tb-user-name');
+  if(!currentUser) return;
+  
+  const branchName = (selectedBranch && selectedBranch !== 'global') 
+    ? (STORES[selectedBranch] || selectedBranch) 
+    : null;
+  
+  // Cập nhật topbar user name + chi nhánh
+  if(userNameEl){
+    userNameEl.textContent = branchName 
+      ? (currentUser.fullname || currentUser.user || '') + ' — ' + branchName.replace('ZEN Tea ','')
+      : (currentUser.fullname || currentUser.user || '');
+  }
+
+  // Cập nhật store selector trong sidebar
+  const storeSel = document.getElementById('sb-store-sel');
+  if(storeSel && selectedBranch){
+    storeSel.value = selectedBranch;
+  }
+  
+  // Hiển thị/ẩn banner "Đang xem chi nhánh" ở đầu content
+  let banner = document.getElementById('branch-view-banner');
+  if(branchName && currentUser.role !== 'superadmin'){
+    if(!banner){
+      banner = document.createElement('div');
+      banner.id = 'branch-view-banner';
+      banner.style.cssText = 'display:none;';
+      document.getElementById('main')?.prepend(banner);
+    }
+    banner.innerHTML = `<div style="
+      background:linear-gradient(135deg,var(--green),#3a9430);
+      color:#fff;padding:8px 20px;font-size:13px;font-weight:700;
+      display:flex;align-items:center;gap:8px;
+    ">🏪 ${branchName} <span style="font-weight:400;opacity:.85;font-size:12px;">— Chi nhánh đang quản lý</span></div>`;
+    banner.style.display = 'block';
+  } else if(banner){
+    banner.style.display = 'none';
+  }
 }
 
 // EMOJI PICKER

@@ -373,6 +373,9 @@ function sidebarSetup(account){
             📍 ${STORES[allowedSt[0]] || allowedSt[0]}
           </div>`;
       }
+      // Load data cho chi nhánh được phân quyền
+      if(currentUser) currentUser.branch = allowedSt[0];
+      try { setTimeout(() => loadBranchData(), 50); } catch(e){}
     } else {
       // Staff nhiều cửa hàng: dropdown chỉ hiện các cửa hàng được phép
       // Ẩn global và các cửa hàng không được phép
@@ -394,6 +397,8 @@ function sidebarSetup(account){
         const _sess = JSON.parse(localStorage.getItem('zentea-session')||'{}');
         if(_sess.id === account.id){ _sess.branch = targetBranch; localStorage.setItem('zentea-session', JSON.stringify(_sess)); }
       } catch(e){}
+      // Load data cho chi nhánh đầu tiên
+      try { setTimeout(() => loadBranchData(), 50); } catch(e){}
     }
   }
 
