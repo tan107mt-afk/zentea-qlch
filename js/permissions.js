@@ -50,8 +50,19 @@ async function _handleGoogleUserCore(gUser, fromSession=false){
         allowedSections:found.allowedSections||null,
         allowedStores:found.allowedStores||null}, fromSession);
     } else if(found.status === 'rejected'){
-      showAuthError('❌ Tài khoản của bạn đã bị từ chối. Liên hệ admin.');
-      if(fbAuth) fbAuth.signOut();
+      // Tài khoản bị từ chối đăng nhập lại → reset về pending để admin xét lại
+      found.status = 'pending';
+      found.requestedAt = new Date().toISOString();
+      found.avatar = gUser.photoURL || found.avatar || '';
+      found.fullname = gUser.displayName || found.fullname || gUser.email;
+      await apiSaveAccounts(accounts);
+      // Notify superadmin
+      if(fbDb){
+        try { await fbDb.ref('pendingNotify/' + gUser.uid).set({
+          email: gUser.email, name: gUser.displayName, requestedAt: Date.now()
+        }); } catch(e){}
+      }
+      showPendingScreen(gUser.email);
     } else {
       // pending hoặc MISSING status → coi là pending, cập nhật lại
       if(!found.status){
@@ -76,10 +87,11 @@ async function _handleGoogleUserCore(gUser, fromSession=false){
   accounts.push(newReq);
   await apiSaveAccounts(accounts);
 
-  // Lưu vào pending node riêng để superadmin dễ thấy
+  // Notify superadmin có tài khoản mới chờ duyệt
   if(fbDb){
     try { await fbDb.ref('pendingNotify/' + gUser.uid).set({
-      email: gUser.email, name: gUser.displayName, requestedAt: Date.now()
+      email: gUser.email, name: gUser.displayName || gUser.email,
+      requestedAt: Date.now(), isNew: true
     }); } catch(e){}
   }
   showPendingScreen(gUser.email);

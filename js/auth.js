@@ -61,12 +61,22 @@ async function checkSession(){
         const accounts = await apiGetAccounts();
         const fresh = accounts.find(a => a.id === u.id || a.email === u.email);
         if(fresh){
-          // Kiểm tra status - nếu bị revoke thì logout
-          if(fresh.status === 'rejected' || fresh.status === 'pending'){
+          // Kiểm tra status
+          if(fresh.status === 'rejected'){
+            // Tài khoản bị từ chối → xóa session, Firebase sẽ trigger re-login
+            // _handleGoogleUserCore sẽ reset về pending tự động
             localStorage.removeItem('zentea-session');
-            showAuthError(fresh.status === 'rejected' 
-              ? '❌ Tài khoản đã bị từ chối.' 
-              : '⏳ Tài khoản đang chờ duyệt.');
+            if(fbAuth && fbAuth.currentUser){
+              // Có Firebase session → xử lý qua handleGoogleUser (sẽ reset pending)
+              await handleGoogleUser(fbAuth.currentUser, true);
+            } else {
+              showAuthError('❌ Tài khoản đã bị từ chối. Vui lòng đăng nhập lại để yêu cầu xét duyệt.');
+            }
+            return;
+          }
+          if(fresh.status === 'pending'){
+            localStorage.removeItem('zentea-session');
+            showPendingScreen(fresh.email || u.email);
             return;
           }
           // Đồng bộ mọi thay đổi từ DB
