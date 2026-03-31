@@ -263,6 +263,9 @@ function loginSuccess(account, fromSession){
   // Hide hero, show main app
   hide('home');
   document.body.classList.add('logged-in');
+  // Hiện topbar khi đăng nhập
+  const _topbar = $('topbar');
+  if(_topbar) _topbar.style.display = 'flex';
   // Phân quyền sidebar + topbar
   if(typeof sidebarSetup === 'function') sidebarSetup(account);
   document.querySelector('.stats-bar').style.display = 'none';
@@ -365,48 +368,62 @@ function loginSuccess(account, fromSession){
 function doLogout(){
   isLoggedIn = false; currentUser = null; selectedBranch = null;
   try { localStorage.removeItem('zentea-session'); } catch(e){}
-  // Hide sidebar
+  // Ẩn topbar và sidebar
+  const topbar = $('topbar');
+  if(topbar) topbar.style.display = 'none';
   const sb = $('sidebar');
   if(sb){ sb.classList.remove('visible','open'); }
+  // Ẩn overlay
+  const ov = $('sb-overlay');
+  if(ov){ ov.classList.remove('visible'); ov.style.display='none'; }
+  // Ẩn branch banner
+  const banner = $('branch-view-banner');
+  if(banner) banner.style.display = 'none';
+  // Reset tb-user
+  const tbUser = $('tb-user');
+  if(tbUser) tbUser.style.display = 'none';
+  // Ẩn approve button
+  const approveBtn = $('approve-btn');
+  if(approveBtn) approveBtn.style.display = 'none';
+  
   document.body.classList.remove('sb-visible','sb-expanded','logged-in');
-  // Clear topnav branch badge
-  const navBadge = $('nav-branch-badge');
-  if(navBadge) navBadge.innerHTML = '';
-  // Restore nav-logo to original state
-  const navLogoRestore = document.querySelector('.nav-logo');
-  if(navLogoRestore && navLogoRestore.dataset.originalHtml){
-    navLogoRestore.innerHTML = navLogoRestore.dataset.originalHtml;
-    navLogoRestore.style.cssText = '';
-    delete navLogoRestore.dataset.originalHtml;
-  }
-  const navLogo = $('nav-logo-name');
-  // Show login screen
-  show('home','flex');
-  document.querySelector('.stats-bar').style.display = 'none';
   document.querySelectorAll('.acc-section').forEach(s => s.classList.remove('page-active'));
-  show('home','flex');
-  window.scrollTo({top:0,behavior:'instant'});
-  // Remove branch badge
-  // branch-badge removed
-  // Reset logout button
+  document.querySelector('.stats-bar').style.display = 'none';
+  
+  // Reset logout button trong sidebar
   const logoutBtn = $('logout-btn');
   if(logoutBtn && logoutBtn.parentElement) logoutBtn.parentElement.remove();
+  const sbLogoutBtn = $('sb-logout-btn');
+  if(sbLogoutBtn) sbLogoutBtn.style.display = 'none';
+  
+  // Reset user info trong sidebar
+  const sbUserInfo = $('sb-user-info');
+  if(sbUserInfo) sbUserInfo.style.display = 'none';
+  const sbStoreWrap = $('sb-store-wrap');
+  if(sbStoreWrap) sbStoreWrap.style.display = 'none';
+
+  // Reset URL hash
+  history.replaceState(null,'',location.pathname);
+
   // Reset login form
   var _bpi=$('branch-pass-input'); if(_bpi) _bpi.value = '';
-  var uiEl = $('login-username-input');
-  if(uiEl) uiEl.value = '';
+  var uiEl=$('login-username-input'); if(uiEl) uiEl.value = '';
   var _aer=$('auth-error'); if(_aer) _aer.style.display = 'none';
-  // Reset topnav active state
-  document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
 
-  // Reset in-memory branch data so next login loads fresh
+  // Hiện login screen
+  show('home','flex');
+  window.scrollTo({top:0,behavior:'instant'});
+
+  // Reset in-memory data
   contactsData = [...DEFAULT_CONTACTS];
   violationsData = [...DEFAULT_VIOLATIONS];
   employeesData = [];
   customRecipes = [];
   shiftsData = [...DEFAULT_SHIFTS];
-  // Schedule data is handled by Google Sheets embed — no reset needed
   clTasks = []; clDateDone = {}; clDateOverrides = {};
+  
+  // Sign out Firebase
+  try { if(typeof fbAuth !== 'undefined' && fbAuth) fbAuth.signOut(); } catch(e){}
 }
 
 // Init: hide content until logged in, check session

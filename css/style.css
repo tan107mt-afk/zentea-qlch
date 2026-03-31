@@ -55,9 +55,13 @@ html, body { touch-action: pan-x pan-y; }
   position:fixed;top:0;left:0;right:0;z-index:300;
   height:var(--topbar-h);
   background:linear-gradient(135deg,#1e5c1e 0%,var(--green) 60%,#3a9430 100%);
-  display:flex;align-items:center;gap:8px;padding:0 14px;
+  display:none;align-items:center;gap:8px;padding:0 14px;
   box-shadow:0 2px 20px rgba(0,0,0,.25);
   user-select:none;
+}
+/* Hiện topbar khi đã đăng nhập */
+body.logged-in #topbar{
+  display:flex;
 }
 #sidebar-toggle{
   background:none;border:none;color:#fff;cursor:pointer;
