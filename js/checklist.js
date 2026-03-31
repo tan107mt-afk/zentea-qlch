@@ -238,8 +238,17 @@ function openRecipeDetail(id){
 function loginSuccess(account, fromSession){
   isLoggedIn = true;
   currentUser = account;
-  // Set selectedBranch từ account
-  if(account.branch) selectedBranch = account.branch;
+  // Set selectedBranch từ account (ưu tiên allowedStores[0] nếu có)
+  if(account.allowedStores && account.allowedStores.length > 0
+     && account.role !== 'admin' && account.role !== 'superadmin'){
+    // Staff: dùng cửa hàng đầu tiên được phân làm default
+    selectedBranch = account.branch && account.branch !== 'global'
+      ? account.branch : account.allowedStores[0];
+  } else if(account.branch && account.branch !== 'global'){
+    selectedBranch = account.branch;
+  } else {
+    selectedBranch = 'global';
+  }
   // Ẩn loading splash nếu còn hiển thị
   const loader = document.getElementById('app-loading');
   if(loader && loader.style.display !== 'none'){

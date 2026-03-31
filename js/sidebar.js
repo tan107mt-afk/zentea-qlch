@@ -305,11 +305,22 @@ function sidebarChangeBranch(val){
   selectedBranch = val;
   // Cập nhật currentUser.branch để đồng bộ
   if(currentUser) currentUser.branch = val;
+  // Lưu vào localStorage
   try {
     const s = JSON.parse(localStorage.getItem('zentea-session')||'{}');
     s.branch = val;
     localStorage.setItem('zentea-session', JSON.stringify(s));
   } catch(e){}
+  // Cập nhật branch trong Firebase DB để persist qua các session
+  if(typeof apiGetAccounts === 'function' && currentUser && currentUser.id){
+    apiGetAccounts().then(accounts => {
+      const acc = accounts.find(a => a.id === currentUser.id);
+      if(acc && acc.role !== 'superadmin'){
+        acc.branch = val;
+        if(typeof apiSaveAccounts === 'function') apiSaveAccounts(accounts).catch(()=>{});
+      }
+    }).catch(()=>{});
+  }
   try { loadBranchData(); } catch(e){}
   const storeName = val === 'global' ? 'Tất cả cửa hàng' : (STORES[val] || val);
   showToast('🏪 ' + storeName);

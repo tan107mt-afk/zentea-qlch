@@ -85,6 +85,13 @@ async function checkSession(){
           u.role = fresh.role || u.role;
           u.status = fresh.status;
           u.fullname = fresh.fullname || u.fullname;
+          // Sync branch từ DB
+          if(fresh.branch && fresh.branch !== 'global'){
+            u.branch = fresh.branch;
+          } else if(fresh.allowedStores && fresh.allowedStores.length > 0
+                    && fresh.role !== 'admin' && fresh.role !== 'superadmin'){
+            u.branch = fresh.allowedStores[0];
+          }
           // Cập nhật session
           localStorage.setItem('zentea-session', JSON.stringify(u));
         } else if(u.googleUid) {

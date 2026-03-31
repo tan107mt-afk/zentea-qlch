@@ -315,9 +315,12 @@ async function approveAccount(id){
   // Lưu allowedStores từ checkboxes
   if(role === 'admin' || role === 'superadmin'){
     acc.allowedStores = null; // admin thấy tất cả stores
+    acc.branch = 'global';
   } else {
     const storeCbs = document.querySelectorAll('.perm-store-cb-' + id + ':checked');
     acc.allowedStores = [...storeCbs].map(cb => cb.value);
+    // Set branch = cửa hàng đầu tiên được phân (để data load đúng ngay khi login)
+    acc.branch = (acc.allowedStores.length > 0) ? acc.allowedStores[0] : 'global';
   }
   await apiSaveAccounts(accounts);
   if(fbDb) try { await fbDb.ref('pendingNotify/' + acc.googleUid).remove(); } catch(e){}
@@ -643,6 +646,13 @@ async function savePermEdit(id){
   acc.allowedSections = [...cbs].map(cb => cb.value);
   const storeCbs = document.querySelectorAll('.perm-store-cb:checked');
   acc.allowedStores = [...storeCbs].map(cb => cb.value);
+  // Set branch = cửa hàng đầu tiên được phân
+  if(acc.role !== 'admin' && acc.role !== 'superadmin'){
+    acc.branch = (acc.allowedStores && acc.allowedStores.length > 0)
+      ? acc.allowedStores[0] : 'global';
+  } else {
+    acc.branch = 'global';
+  }
   await apiSaveAccounts(accounts);
   closePerm();
   await renderMembersList();
