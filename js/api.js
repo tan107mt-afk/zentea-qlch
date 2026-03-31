@@ -6,8 +6,12 @@
 // ─── Branch-scoped storage key helper ──────────────────────────
 // All per-branch data is prefixed with the branch ID so stores never share data
 function branchKey(key){
-  // Use user's unique username as namespace so each account has separate data
-  const ns = (currentUser && currentUser.user) ? currentUser.user : 'global';
+  // Nếu đang chọn chi nhánh cụ thể (cn01..cn17) → dùng branch ID làm namespace
+  // để data được chia theo chi nhánh (nhiều user cùng quản lý 1 chi nhánh)
+  // Nếu không có chi nhánh cụ thể → dùng username (backward compatible)
+  const ns = (typeof selectedBranch !== 'undefined' && selectedBranch && selectedBranch !== 'global')
+    ? selectedBranch
+    : (currentUser && currentUser.user ? currentUser.user : 'global');
   return ns + '-' + key;
 }
 
