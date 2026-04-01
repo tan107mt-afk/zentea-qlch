@@ -360,11 +360,15 @@ async function loadCleaning(){
   await clLoadDateDone();
   await clLoadDateOverrides();
   try {
-    const saved = await window.storage.get(branchKey('zentea-cleaning'));
-    if(saved) clTasks = JSON.parse(saved.value);
-    else { clInitDefault(); }
-  } catch(e) { clInitDefault(); }
-  clRender();
+    const d = await branchDbGet('cleaning');
+    if(d){ clTasks = d; }
+    else {
+      const s = localStorage.getItem(branchKey('zentea-cleaning'));
+      if(s) clTasks = JSON.parse(s);
+      else clInitDefault();
+    }
+  } catch(e){ clInitDefault(); }
+  if(typeof clRender === 'function') clRender();
 }
 
 function clInitDefault(){
@@ -379,6 +383,7 @@ function clInitDefault(){
 }
 
 async function clSave(){
+  try { await branchDbSet('cleaning', clTasks); } catch(e){}
   try { await window.storage.set(branchKey('zentea-cleaning'), JSON.stringify(clTasks)); } catch(e){}
 }
 

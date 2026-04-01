@@ -23,6 +23,32 @@ function branchKey(key){
   return ns + '-' + key;
 }
 
+
+// ── Branch Firebase DB helpers ──────────────────────────────────
+// Lưu/đọc data theo chi nhánh từ Firebase Realtime DB
+// Path: branches/{branchId}/{dataType}
+// → Tất cả user cùng chi nhánh chia sẻ cùng 1 bộ data
+
+async function branchDbGet(dataType){
+  const branch = (typeof selectedBranch !== 'undefined' && selectedBranch && selectedBranch !== 'global' && /^cn\d+$/.test(selectedBranch))
+    ? selectedBranch : null;
+  if(!branch || !fbDb) return null;
+  try {
+    const snap = await fbDb.ref('branches/' + branch + '/' + dataType).once('value');
+    return snap.val() || null;
+  } catch(e){ return null; }
+}
+
+async function branchDbSet(dataType, data){
+  const branch = (typeof selectedBranch !== 'undefined' && selectedBranch && selectedBranch !== 'global' && /^cn\d+$/.test(selectedBranch))
+    ? selectedBranch : null;
+  if(!branch || !fbDb) return false;
+  try {
+    await fbDb.ref('branches/' + branch + '/' + dataType).set(data);
+    return true;
+  } catch(e){ return false; }
+}
+
 // Called once after a successful login to load all branch data
 
 // Hiển thị trạng thái "Chi nhánh chưa có dữ liệu" cho section
@@ -177,18 +203,23 @@ let contactsData = [...DEFAULT_CONTACTS];
 async function loadContacts(){
   contactsData = [...DEFAULT_CONTACTS];
   try {
-    const r = await window.storage.get(branchKey('zentea-contacts'));
-    if(r && r.value) contactsData = JSON.parse(r.value);
+    const data = await branchDbGet('contacts');
+    if(data) contactsData = data;
+    else {
+      // Fallback localStorage
+      const s = localStorage.getItem(branchKey('zentea-contacts'));
+      if(s) contactsData = JSON.parse(s);
+    }
   } catch(e){
     try {
       const s = localStorage.getItem(branchKey('zentea-contacts'));
       if(s) contactsData = JSON.parse(s);
     } catch(e2){}
   }
-  renderContactsGrid();
+  if(typeof renderContactsGrid === 'function') renderContactsGrid();
 }
 async function saveContacts(){
-  try { await window.storage.set(branchKey('zentea-contacts'), JSON.stringify(contactsData)); } catch(e){}
+  try { await branchDbSet('contacts', contactsData); } catch(e){}
   try { localStorage.setItem(branchKey('zentea-contacts'), JSON.stringify(contactsData)); } catch(e){}
 }
 
@@ -606,17 +637,17 @@ let editingEmpId = null;
 async function loadEmployees(){
   employeesData = [];
   try {
-    const r = await window.storage.get(branchKey('zentea-employees'));
-    if(r && r.value) employeesData = JSON.parse(r.value);
-  } catch(e){}
-  try {
-    const s = localStorage.getItem(branchKey('zentea-employees'));
-    if(s && !employeesData.length) employeesData = JSON.parse(s);
+    const data = await branchDbGet('employees');
+    if(data) employeesData = data;
+    else {
+      const s = localStorage.getItem(branchKey('zentea-employees'));
+      if(s) employeesData = JSON.parse(s);
+    }
   } catch(e){}
 }
 
 async function saveEmployees(){
-  try { await window.storage.set(branchKey('zentea-employees'), JSON.stringify(employeesData)); } catch(e){}
+  try { await branchDbSet('employees', employeesData); } catch(e){}
   try { localStorage.setItem(branchKey('zentea-employees'), JSON.stringify(employeesData)); } catch(e){}
 }
 
@@ -771,85 +802,18 @@ let shiftsData = [...DEFAULT_SHIFTS];
 async function loadShifts(){
   shiftsData = [...DEFAULT_SHIFTS];
   try {
-    const r = await window.storage.get(branchKey('zentea-shifts'));
-    if(r && r.value) shiftsData = JSON.parse(r.value);
+    const d = await branchDbGet('shifts');
+    if(d) shiftsData = d;
+    else {
+      const s = localStorage.getItem(branchKey('zentea-shifts'));
+      if(s) shiftsData = JSON.parse(s);
+    }
   } catch(e){}
-  try {
-    const s = localStorage.getItem(branchKey('zentea-shifts'));
-    if(s) shiftsData = JSON.parse(s);
-  } catch(e){}
-  populateShiftSelect();
 }
 
 async function saveShifts(){
-  try { await window.storage.set(branchKey('zentea-shifts'), JSON.stringify(shiftsData)); } catch(e){}
+  try { await branchDbSet('shifts', shiftsData); } catch(e){}
   try { localStorage.setItem(branchKey('zentea-shifts'), JSON.stringify(shiftsData)); } catch(e){}
-}
-
-function populateShiftSelect(currentVal){
-  const sel = $('emp-shift');
-  if(!sel) return;
-  const val = currentVal || sel.value;
-  sel.innerHTML = shiftsData.map(s =>
-    `<option value="${s}" ${s===val?'selected':''}>${s}</option>`
-  ).join('');
-}
-
-function openShiftManager(){
-  show('shift-modal','flex');
-  renderShiftList();
-  $('new-shift-input').value = '';
-}
-
-function closeShiftModal(){
-  hide('shift-modal');
-  populateShiftSelect();
-}
-var _sm=$('shift-modal'); if(_sm) _sm.addEventListener('click', function(e){
-  if(e.target === this) closeShiftModal();
-});
-
-function renderShiftList(){
-  const el = $('shift-list');
-  if(!el) return;
-  if(!shiftsData.length){
-    el.innerHTML = `<p style="color:#bbb;font-size:13px;text-align:center;padding:12px;">Chưa có ca nào</p>`;
-    return;
-  }
-  el.innerHTML = shiftsData.map((s, i) => `
-    <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;
-      background:var(--green-pale);border-radius:10px;">
-      <span style="font-size:16px;">🕐</span>
-      <span id="shift-label-${i}" style="flex:1;font-size:13px;font-weight:600;color:var(--dark);">${s}</span>
-      <input id="shift-edit-${i}" type="text" value="${s}"
-        style="display:none;flex:1;padding:6px 10px;border:1.5px solid var(--green);border-radius:8px;
-        font-family:'Open Sans',sans-serif;font-size:13px;outline:none;"
-        onkeydown="if(event.key==='Enter')confirmEditShift(${i});if(event.key==='Escape')cancelEditShift(${i})"/>
-      <button onclick="startEditShift(${i})" id="shift-btn-edit-${i}"
-        style="padding:4px 10px;background:#fff;border:1.5px solid var(--border);border-radius:8px;
-        font-size:12px;color:var(--green);cursor:pointer;font-weight:600;">✏️</button>
-      <button onclick="confirmEditShift(${i})" id="shift-btn-save-${i}"
-        style="display:none;padding:4px 10px;background:var(--green);border:none;border-radius:8px;
-        font-size:12px;color:#fff;cursor:pointer;font-weight:600;">✔</button>
-      <button onclick="deleteShift(${i})"
-        style="padding:4px 10px;background:#fff;border:1.5px solid #ffcdd2;border-radius:8px;
-        font-size:12px;color:#c44;cursor:pointer;font-weight:600;">🗑</button>
-    </div>`).join('');
-}
-
-function startEditShift(i){
-  $(`shift-label-${i}`).style.display = 'none';
-  $(`shift-edit-${i}`).style.display = 'block';
-  $(`shift-btn-edit-${i}`).style.display = 'none';
-  $(`shift-btn-save-${i}`).style.display = 'block';
-  $(`shift-edit-${i}`).focus();
-}
-
-function cancelEditShift(i){
-  $(`shift-label-${i}`).style.display = 'block';
-  $(`shift-edit-${i}`).style.display = 'none';
-  $(`shift-btn-edit-${i}`).style.display = 'block';
-  $(`shift-btn-save-${i}`).style.display = 'none';
 }
 
 async function confirmEditShift(i){

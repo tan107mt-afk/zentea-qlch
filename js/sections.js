@@ -31,6 +31,7 @@ async function clLoadDateDone(){
   } catch(e){ clDateDone = {}; }
 }
 async function clSaveDateDone(){
+  try { await branchDbSet('cl-dates', clDateDone); } catch(e){}
   try { await window.storage.set(branchKey('zentea-cl-dates'), JSON.stringify(clDateDone)); } catch(e){}
 }
 
