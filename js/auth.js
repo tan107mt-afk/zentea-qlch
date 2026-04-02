@@ -81,7 +81,11 @@ async function checkSession(){
           }
           // Đồng bộ mọi thay đổi từ DB
           u.allowedSections = fresh.allowedSections || null;
-          u.allowedStores = fresh.allowedStores || null;
+          // Đảm bảo allowedStores luôn là array (Firebase object → array)
+          let _stores = fresh.allowedStores || null;
+          if(_stores && !Array.isArray(_stores)) _stores = Object.values(_stores);
+          if(_stores && _stores.length === 0) _stores = null;
+          u.allowedStores = _stores;
           u.role = fresh.role || u.role;
           u.status = fresh.status;
           u.fullname = fresh.fullname || u.fullname;

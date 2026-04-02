@@ -1047,7 +1047,7 @@ async function doRegister(){
   const username = ($('reg-username-input')?.value||'').trim().toLowerCase();
   const pass     = ($('reg-pass-input')?.value||'');
 
-  if(!fullname){ showRegError('Vui lòng nhập họ tên');      return; }
+  if(!fullname){ showRegError('Vui lòng nhập họ tên');       return; }
   if(!username){ showRegError('Vui lòng nhập tên đăng nhập'); return; }
   if(pass.length<4){ showRegError('Mật khẩu phải ít nhất 4 ký tự'); return; }
   if(!/^[a-z0-9_.]+$/.test(username)){ showRegError('Tên đăng nhập chỉ dùng chữ thường, số, _ và .'); return; }
@@ -1056,33 +1056,47 @@ async function doRegister(){
   if(btn){ btn.disabled=true; btn.textContent='Đang xử lý...'; }
 
   try{
-    // Check duplicate username
     const accounts = await apiGetAccounts();
     if(accounts.find(a=>(a.username||'').toLowerCase()===username)){
       showRegError('Tên đăng nhập đã tồn tại, chọn tên khác'); return;
     }
 
-    // Create account
+    // Tạo tài khoản với status PENDING - chờ superadmin duyệt
+    const newId = 'acc-' + Date.now();
     const newAccount = {
-      id:        'acc-' + Date.now(),
+      id:          newId,
       username,
       fullname,
-      password:  pass,
-      role:      'staff',
-      branch:    'global',
-      createdAt: new Date().toISOString()
+      password:    pass,
+      role:        'staff',
+      branch:      'global',
+      status:      'pending',
+      requestedAt: new Date().toISOString(),
+      createdAt:   new Date().toISOString(),
+      allowedSections: null,
+      allowedStores:   null,
     };
     accounts.push(newAccount);
     await apiSaveAccounts(accounts);
 
+    // Notify superadmin qua Firebase realtime
+    if(fbDb){
+      try {
+        await fbDb.ref('pendingNotify/' + newId).set({
+          email: username, name: fullname,
+          requestedAt: Date.now(), isNew: true, type: 'register'
+        });
+      } catch(e){}
+    }
+
     // Clear form
     ['reg-fullname-input','reg-username-input','reg-pass-input']
       .forEach(id=>{ const el=$(id); if(el) el.value=''; });
-    showRegOk('✅ Tạo tài khoản thành công! Bạn có thể đăng nhập ngay.');
-    setTimeout(()=>switchAuthTab('login'),2200);
+    showRegOk('✅ Tạo tài khoản thành công! Tài khoản đang chờ quản trị viên phê duyệt.');
+    setTimeout(()=>switchAuthTab('login'), 3000);
 
   }catch(err){
-    showRegError('Lỗi hệ thống: '+err.message);
+    showRegError('Lỗi: ' + err.message);
   }finally{
     if(btn){ btn.disabled=false; btn.textContent='Tạo tài khoản →'; }
   }

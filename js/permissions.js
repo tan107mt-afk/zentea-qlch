@@ -44,11 +44,15 @@ async function _handleGoogleUserCore(gUser, fromSession=false){
   // Account khác: kiểm tra status
   if(found){
     if(found.status === 'approved'){
+      // Đảm bảo allowedStores là array
+      let _fStores = found.allowedStores || null;
+      if(_fStores && !Array.isArray(_fStores)) _fStores = Object.values(_fStores);
+      if(_fStores && _fStores.length === 0) _fStores = null;
       loginSuccess({user:found.username,fullname:found.fullname,
         branch:found.branch||'global',role:found.role||'staff',
         id:found.id,email:found.email,avatar:gUser.photoURL||'',
         allowedSections:found.allowedSections||null,
-        allowedStores:found.allowedStores||null}, fromSession);
+        allowedStores:_fStores}, fromSession);
     } else if(found.status === 'rejected'){
       // Tài khoản bị từ chối đăng nhập lại → reset về pending để admin xét lại
       found.status = 'pending';

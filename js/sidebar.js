@@ -374,74 +374,81 @@ function sidebarSetup(account){
 
   // ── Store selector: rebuild hoàn toàn mỗi lần ──
   const storeWrap = document.getElementById('sb-store-wrap');
-  if(!storeWrap) return;
-  storeWrap.style.display = '';
+  if(storeWrap){
+    storeWrap.style.display = '';
 
-  const allowedSt = account.allowedStores;
-  const isAdminRole = (role === 'superadmin' || role === 'admin');
+    // Đảm bảo allowedStores luôn là array (Firebase có thể trả về object)
+    let allowedSt = account.allowedStores;
+    if(allowedSt && !Array.isArray(allowedSt)){
+      allowedSt = Object.values(allowedSt); // Convert Firebase object → array
+    }
+    if(allowedSt && allowedSt.length === 0) allowedSt = null;
 
-  if(isAdminRole || !allowedSt || allowedSt.length === 0){
-    // Admin/Superadmin: dropdown đầy đủ 17 cửa hàng + global
-    storeWrap.innerHTML = `
-      <label class="sb-store-label">🏪 Chi nhánh</label>
-      <select class="sb-store-sel" id="sb-store-sel" onchange="sidebarChangeBranch(this.value)">
-        <option value="global">-- Tất cả cửa hàng --</option>
-        ${Object.entries(STORES).filter(([id])=>id!=='global').map(([id,name])=>
-          `<option value="${id}">${name}</option>`
-        ).join('')}
-      </select>`;
-    const sel = document.getElementById('sb-store-sel');
-    const branch = account.branch || 'global';
-    if(sel) sel.value = branch;
-    selectedBranch = branch;
+    const isAdminRole = (role === 'superadmin' || role === 'admin');
 
-  } else if(allowedSt.length === 1){
-    // Staff 1 cửa hàng: label tĩnh, không dropdown
-    selectedBranch = allowedSt[0];
-    if(currentUser) currentUser.branch = allowedSt[0];
-    storeWrap.innerHTML = `
-      <label class="sb-store-label">🏪 Chi nhánh</label>
-      <div style="padding:8px 12px;background:#d1fae5;border-radius:10px;
-        font-size:12px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-          style="width:14px;height:14px;flex-shrink:0;">
-          <path stroke-linecap="round" stroke-linejoin="round"
-            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-        ${STORES[allowedSt[0]]?.replace('ZEN Tea ','') || allowedSt[0]}
-      </div>`;
-    try { setTimeout(() => loadBranchData(), 100); } catch(e){}
+    if(isAdminRole || !allowedSt){
+      // Admin/Superadmin: dropdown đầy đủ 17 cửa hàng + global
+      const opts = Object.entries(STORES).map(([id,name]) =>
+        `<option value="${id}">${name}</option>`
+      ).join('');
+      storeWrap.innerHTML = `
+        <label class="sb-store-label">🏪 Chi nhánh</label>
+        <select class="sb-store-sel" id="sb-store-sel" onchange="sidebarChangeBranch(this.value)">
+          ${opts}
+        </select>`;
+      const sel = document.getElementById('sb-store-sel');
+      const branch = account.branch || 'global';
+      if(sel) sel.value = branch;
+      selectedBranch = branch;
 
-  } else {
-    // Staff nhiều cửa hàng: dropdown CHỈ hiện cửa hàng được phép
-    const currentBranch = account.branch || '';
-    const targetBranch = allowedSt.includes(currentBranch) ? currentBranch : allowedSt[0];
-    selectedBranch = targetBranch;
-    if(currentUser) currentUser.branch = targetBranch;
+    } else if(allowedSt.length === 1){
+      // Staff 1 cửa hàng: label tĩnh
+      const branchId = allowedSt[0];
+      selectedBranch = branchId;
+      if(currentUser) currentUser.branch = branchId;
+      const branchName = (STORES[branchId] || branchId).replace('ZEN Tea ','');
+      storeWrap.innerHTML = `
+        <label class="sb-store-label">🏪 Chi nhánh</label>
+        <div style="padding:8px 12px;background:#d1fae5;border-radius:10px;
+          font-size:12px;font-weight:700;color:var(--green);display:flex;align-items:center;gap:6px;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            style="width:14px;height:14px;flex-shrink:0;">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          ${branchName}
+        </div>`;
+      try { setTimeout(() => { if(typeof loadBranchData==='function') loadBranchData(); }, 100); } catch(e){}
 
-    // Build dropdown chỉ với các cửa hàng được phép
-    const options = allowedSt.map(id => {
-      const name = (STORES[id] || id).replace('ZEN Tea ','');
-      const sel = id === targetBranch ? ' selected' : '';
-      return `<option value="${id}"${sel}>${name}</option>`;
-    }).join('');
+    } else {
+      // Staff nhiều cửa hàng: dropdown chỉ cửa hàng được phép
+      const currentBranch = account.branch || '';
+      const targetBranch  = allowedSt.includes(currentBranch) ? currentBranch : allowedSt[0];
+      selectedBranch = targetBranch;
+      if(currentUser) currentUser.branch = targetBranch;
 
-    storeWrap.innerHTML = `
-      <label class="sb-store-label">🏪 Chi nhánh (${allowedSt.length})</label>
-      <select class="sb-store-sel" id="sb-store-sel" onchange="sidebarChangeBranch(this.value)">
-        ${options}
-      </select>`;
+      const opts = allowedSt.map(id => {
+        const name = (STORES[id] || id).replace('ZEN Tea ','');
+        return `<option value="${id}"${id===targetBranch?' selected':''}>${name}</option>`;
+      }).join('');
 
-    // Sync localStorage
-    try {
-      const _sess = JSON.parse(localStorage.getItem('zentea-session')||'{}');
-      if(_sess.id === account.id){
-        _sess.branch = targetBranch;
-        localStorage.setItem('zentea-session', JSON.stringify(_sess));
-      }
-    } catch(e){}
-    try { setTimeout(() => loadBranchData(), 100); } catch(e){}
+      storeWrap.innerHTML = `
+        <label class="sb-store-label">🏪 Chi nhánh (${allowedSt.length})</label>
+        <select class="sb-store-sel" id="sb-store-sel" onchange="sidebarChangeBranch(this.value)">
+          ${opts}
+        </select>`;
+
+      // Sync localStorage
+      try {
+        const _sess = JSON.parse(localStorage.getItem('zentea-session')||'{}');
+        if(_sess.id === account.id){
+          _sess.branch = targetBranch;
+          localStorage.setItem('zentea-session', JSON.stringify(_sess));
+        }
+      } catch(e){}
+      try { setTimeout(() => { if(typeof loadBranchData==='function') loadBranchData(); }, 100); } catch(e){}
+    }
   }
 
   // User info
