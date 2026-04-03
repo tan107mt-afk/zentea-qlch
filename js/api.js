@@ -174,10 +174,7 @@ const DEFAULT_CONTACTS = [
 
 async function loadContacts(){
   contactsData = [...DEFAULT_CONTACTS];
-  if(!fbDb || !selectedBranch || selectedBranch === 'global') {
-    renderContactsGrid();
-    return;
-  }
+  if(!fbDb || !selectedBranch || selectedBranch === 'global'){ renderContactsGrid(); return; }
   try {
     const snap = await fbDb.ref('stores/' + selectedBranch + '/contacts').once('value');
     if(snap.val()) contactsData = snap.val();
@@ -188,7 +185,7 @@ async function saveContacts(){
   if(!fbDb || !selectedBranch || selectedBranch === 'global') return;
   try {
     await fbDb.ref('stores/' + selectedBranch + '/contacts').set(contactsData);
-  } catch(e){ console.error('Lỗi lưu contacts:', e); }
+  } catch(e){}
 }
 function renderContactsGrid(){
   const cg = $('contacts-grid');
@@ -609,14 +606,12 @@ async function loadEmployees(){
     if(snap.val()) employeesData = snap.val();
   } catch(e){}
 }
-
 async function saveEmployees(){
   if(!fbDb || !selectedBranch || selectedBranch === 'global') return;
   try {
     await fbDb.ref('stores/' + selectedBranch + '/employees').set(employeesData);
   } catch(e){}
 }
-
 const STATUS_COLOR = {
   'Đang làm':'#2e7d32','Thử việc':'#f57c00','Nghỉ phép':'#1565c0','Đã nghỉ':'#c62828'
 };
@@ -774,14 +769,12 @@ async function loadShifts(){
   } catch(e){}
   populateShiftSelect();
 }
-
 async function saveShifts(){
   if(!fbDb || !selectedBranch || selectedBranch === 'global') return;
   try {
     await fbDb.ref('stores/' + selectedBranch + '/shifts').set(shiftsData);
   } catch(e){}
 }
-
 function populateShiftSelect(currentVal){
   const sel = $('emp-shift');
   if(!sel) return;
@@ -832,7 +825,6 @@ function renderShiftList(){
         font-size:12px;color:#c44;cursor:pointer;font-weight:600;">🗑</button>
     </div>`).join('');
 }
-
 function startEditShift(i){
   $(`shift-label-${i}`).style.display = 'none';
   $(`shift-edit-${i}`).style.display = 'block';
