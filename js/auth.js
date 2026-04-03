@@ -81,11 +81,7 @@ async function checkSession(){
           }
           // Đồng bộ mọi thay đổi từ DB
           u.allowedSections = fresh.allowedSections || null;
-          // Đảm bảo allowedStores luôn là array (Firebase object → array)
-          let _stores = fresh.allowedStores || null;
-          if(_stores && !Array.isArray(_stores)) _stores = Object.values(_stores);
-          if(_stores && _stores.length === 0) _stores = null;
-          u.allowedStores = _stores;
+          u.allowedStores = fresh.allowedStores || null;
           u.role = fresh.role || u.role;
           u.status = fresh.status;
           u.fullname = fresh.fullname || u.fullname;
@@ -106,7 +102,6 @@ async function checkSession(){
       } catch(e){}
     }
     await new Promise(r => setTimeout(r, 50));
-    console.log('[checkSession] calling loginSuccess, u.allowedStores='+JSON.stringify(u.allowedStores)+' u.branch='+u.branch);
     loginSuccess(u, true);
   } catch(e){}
 }
@@ -365,15 +360,11 @@ async function loadCleaning(){
   await clLoadDateDone();
   await clLoadDateOverrides();
   try {
-    const d = await branchDbGet('cleaning');
-    if(d){ clTasks = d; }
-    else {
-      const s = localStorage.getItem(branchKey('zentea-cleaning'));
-      if(s) clTasks = JSON.parse(s);
-      else clInitDefault();
-    }
-  } catch(e){ clInitDefault(); }
-  if(typeof clRender === 'function') clRender();
+    const saved = await window.storage.get(branchKey('zentea-cleaning'));
+    if(saved) clTasks = JSON.parse(saved.value);
+    else { clInitDefault(); }
+  } catch(e) { clInitDefault(); }
+  clRender();
 }
 
 function clInitDefault(){
@@ -388,7 +379,6 @@ function clInitDefault(){
 }
 
 async function clSave(){
-  try { await branchDbSet('cleaning', clTasks); } catch(e){}
   try { await window.storage.set(branchKey('zentea-cleaning'), JSON.stringify(clTasks)); } catch(e){}
 }
 

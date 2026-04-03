@@ -31,7 +31,6 @@ async function clLoadDateDone(){
   } catch(e){ clDateDone = {}; }
 }
 async function clSaveDateDone(){
-  try { await branchDbSet('cl-dates', clDateDone); } catch(e){}
   try { await window.storage.set(branchKey('zentea-cl-dates'), JSON.stringify(clDateDone)); } catch(e){}
 }
 
@@ -1748,11 +1747,16 @@ function applyContentEdit(section){
   var saved = null;
   try { var raw = localStorage.getItem(branchKey(cfg.storageKey)); if(raw) saved = JSON.parse(raw); } catch(e){}
 
-  if(section === 'checklist'){
-    var lines = (saved && saved.daily)
-      ? saved.daily.split('\n').filter(function(x){ return x.trim(); })
-      : [];
-    clDailyRender(lines);
+  if(section === 'checklist' && saved && saved.daily){
+    var lines = saved.daily.split('\n').filter(function(x){ return x.trim(); });
+    var el = $('daily-list');
+    if(el){
+      el.innerHTML = lines.map(function(item,i){
+        return '<div class="checklist-item" onclick="this.classList.toggle(\'done\')">'
+          + '<div class="check-box"><span class="check-icon">✓</span></div>'
+          + '<span class="check-text">'+item+'</span></div>';
+      }).join('');
+    }
     return;
   }
 
@@ -1938,16 +1942,15 @@ function hrEvalRender(){
       return '<td contenteditable="true" style="'+td+'background:'+bg+';'+(extra||'')+'" onblur="hrEvalUpdate(\''+mv+'\','+i+',\''+field+'\',this.innerText)">'+(val||'')+'</td>';
     }
     return '<tr>'
-      +ce('name',r.name,'font-weight:700;min-width:130px;')
+      +ce('name',r.name,'font-weight:700;min-width:120px;')
       +ce('bac',r.bac,'text-align:center;min-width:45px;')
       +ce('nq',r.nq,'min-width:140px;')
       +ce('kn',r.kn,'min-width:100px;')
-      +ce('gt',r.gt,'min-width:130px;')
+      +ce('gt',r.gt,'min-width:140px;')
       +ce('tn',r.tn,'text-align:center;')
       +ce('td',r.td,'text-align:center;')
       +ce('pc',r.pc,'text-align:center;color:#2d7a2d;font-weight:700;')
-      +ce('diemtru',r.diemtru,'text-align:center;color:#dc2626;font-weight:700;min-width:70px;')
-      +ce('vipham',r.vipham,'color:#dc2626;font-size:11px;min-width:120px;')
+      +ce('diemtru',r.diemtru,'text-align:center;color:#dc2626;font-weight:700;')
       +ce('note',r.note,'color:#888;font-size:11px;')
       +'<td style="'+td+'background:'+bg+';padding:4px;text-align:center;"><button type="button" onclick="hrEvalDelete(\''+mv+'\','+i+')" style="background:#fff0f0;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;width:24px;height:24px;cursor:pointer;font-size:12px;">×</button></td>'
       +'</tr>';
@@ -1967,80 +1970,12 @@ function hrEvalDelete(mv,i){
   saveModuleData('hr_eval',data);
   hrEvalRender();
 }
-// ── Nhân Sự: Tab switcher ───────────────────────────
-function nsTab(tab){
-  const listPanel = document.getElementById('ns-panel-list');
-  const kpiPanel  = document.getElementById('ns-panel-kpi');
-  const listBtn   = document.getElementById('ns-tab-list');
-  const kpiBtn    = document.getElementById('ns-tab-kpi');
-  if(!listPanel || !kpiPanel) return;
-
-  const isKpi = tab === 'kpi';
-  listPanel.style.display = isKpi ? 'none' : 'block';
-  kpiPanel.style.display  = isKpi ? 'block' : 'none';
-
-  if(listBtn){
-    listBtn.style.borderBottomColor = isKpi ? 'transparent' : 'var(--green)';
-    listBtn.style.color = isKpi ? '#9ca3af' : 'var(--green)';
-  }
-  if(kpiBtn){
-    kpiBtn.style.borderBottomColor = isKpi ? 'var(--green)' : 'transparent';
-    kpiBtn.style.color = isKpi ? 'var(--green)' : '#9ca3af';
-  }
-
-  // Load data cho tab được chọn
-  if(isKpi){
-    hrEvalInitMonths();
-    hrEvalRender();
-  } else {
-    if(typeof renderEmployees === 'function') renderEmployees();
-  }
-}
-
-// Khởi tạo tháng cho hr-eval dropdown
-function hrEvalInitMonths(){
-  const sel = document.getElementById('hr-eval-month');
-  if(!sel) return;
-  if(sel.options.length > 0) return; // Đã init rồi
-  const now = new Date();
-  for(let i = 0; i < 12; i++){
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
-    const label = 'Tháng ' + (d.getMonth()+1) + '/' + d.getFullYear();
-    const opt = document.createElement('option');
-    opt.value = val; opt.textContent = label;
-    sel.appendChild(opt);
-  }
-}
-
-// Xuất Excel tháng hiện tại
-function hrEvalExportMonth(){
-  const mv = document.getElementById('hr-eval-month')?.value;
-  if(!mv) return;
-  const data = loadModuleData('hr_eval');
-  const rows = data[mv] || [];
-  if(!rows.length){ showToast('⚠️ Chưa có dữ liệu tháng này'); return; }
-
-  let csv = 'Họ tên,Bậc,Chấp hành NQ,Kỹ năng CM,Giao tiếp,Trách nhiệm,Thái độ,Thành phẩm hủy,Điểm trừ KPI,Lỗi vi phạm,Ghi chú\n';
-  rows.forEach(r => {
-    csv += [r.name,r.bac,r.nq,r.kn,r.gt,r.tn,r.td,r.pc,r.diemtru,r.vipham||'',r.note]
-      .map(v => '"'+(v||'')+'"').join(',') + '\n';
-  });
-  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'KPI_NhanSu_' + mv + '.csv';
-  a.click();
-  showToast('✅ Đã xuất KPI ' + mv);
-}
-
-
 
 function hrEvalAddRow(){
   var mv=$('hr-eval-month').value;
   var data=loadModuleData('hr_eval');
   if(!data[mv]) data[mv]=[];
-  data[mv].push({name:'Nhân viên mới',bac:'C',nq:'',kn:'',gt:'',tn:'',td:'',pc:'',diemtru:'',vipham:'',note:''});
+  data[mv].push({name:'Nhân viên mới',bac:'C',nq:'',kn:'',gt:'',tn:'',td:'',pc:'',diemtru:'',note:''});
   saveModuleData('hr_eval',data);
   hrEvalRender();
   setTimeout(function(){
@@ -2950,202 +2885,3 @@ var OD_BRANCH_FILES = {
 var OD_SHEET = 'SG2';
 
 // ── PKCE ────────────────────────────────────────────────────────
-
-// ── DAILY CHECKLIST – drag & drop + inline add ──
-
-function clDailyGetItems(){
-  try {
-    var raw = localStorage.getItem(branchKey('zentea-content-checklist'));
-    if(raw){
-      var saved = JSON.parse(raw);
-      if(saved && saved.daily) return saved.daily.split('\n').filter(function(x){ return x.trim(); });
-    }
-  } catch(e){}
-  return [];
-}
-
-function clDailySaveItems(items){
-  try {
-    var raw = localStorage.getItem(branchKey('zentea-content-checklist'));
-    var saved = raw ? JSON.parse(raw) : {};
-    saved.daily = items.join('\n');
-    localStorage.setItem(branchKey('zentea-content-checklist'), JSON.stringify(saved));
-  } catch(e){}
-}
-
-function clDailyRender(items){
-  var el = document.getElementById('daily-list');
-  if(!el) return;
-  if(!items) items = clDailyGetItems();
-
-  var html = items.map(function(item, i){
-    var safe = item.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-    return '<div class="cl-daily-item" draggable="true" data-idx="' + i + '">'
-      + '<span class="cl-drag-handle">'
-      + '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">'
-      + '<circle cx="9" cy="5" r="1.5" fill="currentColor"/><circle cx="15" cy="5" r="1.5" fill="currentColor"/>'
-      + '<circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/>'
-      + '<circle cx="9" cy="19" r="1.5" fill="currentColor"/><circle cx="15" cy="19" r="1.5" fill="currentColor"/>'
-      + '</svg></span>'
-      + '<span class="cl-daily-num">' + (i+1) + '.</span>'
-      + '<div class="check-box" onclick="this.parentElement.classList.toggle(\'done\')">'
-      + '<span class="check-icon">✓</span></div>'
-      + '<span class="cl-daily-text" onclick="clDailyStartEdit(this)">' + safe + '</span>'
-      + '<button class="cl-daily-del" onclick="clDailyDelete(' + i + ')" title="Xóa">'
-      + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">'
-      + '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'
-      + '</svg></button>'
-      + '</div>';
-  }).join('');
-
-  html += '<div class="cl-daily-add" onclick="clDailyAdd()">'
-    + '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5">'
-    + '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'
-    + '</svg> Thêm nhiệm vụ</div>';
-
-  el.innerHTML = html;
-  clDailyInitDrag();
-}
-
-function clDailyStartEdit(textEl){
-  if(textEl.contentEditable === 'true') return;
-  textEl.contentEditable = 'true';
-  textEl.focus();
-  var range = document.createRange();
-  range.selectNodeContents(textEl);
-  var sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(range);
-
-  function onBlur(){
-    textEl.contentEditable = 'false';
-    textEl.removeEventListener('blur', onBlur);
-    if(!textEl.textContent.trim()){
-      var idx = parseInt(textEl.closest('.cl-daily-item').dataset.idx);
-      clDailyDelete(idx);
-    } else {
-      clDailySaveFromDOM();
-    }
-  }
-  textEl.addEventListener('blur', onBlur);
-  textEl.addEventListener('keydown', function(e){
-    if(e.key === 'Enter'){ e.preventDefault(); textEl.blur(); }
-    if(e.key === 'Escape'){ textEl.contentEditable = 'false'; textEl.removeEventListener('blur', onBlur); }
-  });
-}
-
-function clDailyAdd(){
-  var el = document.getElementById('daily-list');
-  if(!el) return;
-
-  var addBtn = el.querySelector('.cl-daily-add');
-  var items = clDailyGetItems();
-  var newIdx = items.length;
-
-  var div = document.createElement('div');
-  div.className = 'cl-daily-item';
-  div.draggable = true;
-  div.dataset.idx = newIdx;
-  div.innerHTML = '<span class="cl-drag-handle">'
-    + '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">'
-    + '<circle cx="9" cy="5" r="1.5" fill="currentColor"/><circle cx="15" cy="5" r="1.5" fill="currentColor"/>'
-    + '<circle cx="9" cy="12" r="1.5" fill="currentColor"/><circle cx="15" cy="12" r="1.5" fill="currentColor"/>'
-    + '<circle cx="9" cy="19" r="1.5" fill="currentColor"/><circle cx="15" cy="19" r="1.5" fill="currentColor"/>'
-    + '</svg></span>'
-    + '<span class="cl-daily-num">' + (newIdx+1) + '.</span>'
-    + '<div class="check-box"><span class="check-icon">✓</span></div>'
-    + '<span class="cl-daily-text" contenteditable="true" style="min-width:80px;border-bottom:2px solid var(--green);outline:none;"></span>'
-    + '<button class="cl-daily-del" title="Xóa">'
-    + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5">'
-    + '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>';
-
-  if(addBtn) el.insertBefore(div, addBtn);
-  else el.appendChild(div);
-
-  var textEl = div.querySelector('.cl-daily-text');
-  textEl.focus();
-
-  function onBlur(){
-    textEl.removeEventListener('blur', onBlur);
-    var val = textEl.textContent.trim();
-    if(!val){ div.remove(); return; }
-    textEl.contentEditable = 'false';
-    clDailySaveFromDOM();
-    clDailyUpdateNums();
-    clDailyInitDrag();
-  }
-  textEl.addEventListener('blur', onBlur);
-  textEl.addEventListener('keydown', function(e){
-    if(e.key === 'Enter'){ e.preventDefault(); textEl.blur(); }
-  });
-}
-
-function clDailyDelete(idx){
-  var items = clDailyGetItems();
-  items.splice(idx, 1);
-  clDailySaveItems(items);
-  clDailyRender(items);
-}
-
-function clDailySaveFromDOM(){
-  var el = document.getElementById('daily-list');
-  if(!el) return;
-  var texts = Array.from(el.querySelectorAll('.cl-daily-item .cl-daily-text'))
-    .map(function(s){ return s.textContent.trim(); })
-    .filter(Boolean);
-  clDailySaveItems(texts);
-}
-
-function clDailyUpdateNums(){
-  var el = document.getElementById('daily-list');
-  if(!el) return;
-  Array.from(el.querySelectorAll('.cl-daily-item')).forEach(function(item, i){
-    var numEl = item.querySelector('.cl-daily-num');
-    if(numEl) numEl.textContent = (i+1) + '.';
-    item.dataset.idx = i;
-    var delBtn = item.querySelector('.cl-daily-del');
-    if(delBtn) delBtn.setAttribute('onclick', 'clDailyDelete(' + i + ')');
-  });
-}
-
-function clDailyInitDrag(){
-  var el = document.getElementById('daily-list');
-  if(!el) return;
-  var items = el.querySelectorAll('.cl-daily-item[draggable]');
-  var dragging = null;
-
-  items.forEach(function(item){
-    // Chỉ bắt đầu drag từ handle
-    var handle = item.querySelector('.cl-drag-handle');
-    if(handle){
-      handle.onmousedown = function(){ item.draggable = true; };
-    }
-
-    item.addEventListener('dragstart', function(e){
-      dragging = item;
-      setTimeout(function(){ item.classList.add('dragging'); }, 0);
-      e.dataTransfer.effectAllowed = 'move';
-    });
-    item.addEventListener('dragend', function(){
-      item.classList.remove('dragging');
-      el.querySelectorAll('.cl-daily-item').forEach(function(i){ i.classList.remove('drag-over'); });
-      clDailySaveFromDOM();
-      clDailyUpdateNums();
-      dragging = null;
-    });
-    item.addEventListener('dragover', function(e){
-      e.preventDefault();
-      if(!dragging || dragging === item) return;
-      var rect = item.getBoundingClientRect();
-      var mid = rect.top + rect.height / 2;
-      el.querySelectorAll('.cl-daily-item').forEach(function(i){ i.classList.remove('drag-over'); });
-      item.classList.add('drag-over');
-      if(e.clientY < mid){
-        el.insertBefore(dragging, item);
-      } else {
-        el.insertBefore(dragging, item.nextSibling);
-      }
-    });
-    item.addEventListener('drop', function(e){ e.preventDefault(); });
-  });
-}

@@ -44,15 +44,11 @@ async function _handleGoogleUserCore(gUser, fromSession=false){
   // Account khác: kiểm tra status
   if(found){
     if(found.status === 'approved'){
-      // Đảm bảo allowedStores là array
-      let _fStores = found.allowedStores || null;
-      if(_fStores && !Array.isArray(_fStores)) _fStores = Object.values(_fStores);
-      if(_fStores && _fStores.length === 0) _fStores = null;
       loginSuccess({user:found.username,fullname:found.fullname,
         branch:found.branch||'global',role:found.role||'staff',
         id:found.id,email:found.email,avatar:gUser.photoURL||'',
         allowedSections:found.allowedSections||null,
-        allowedStores:_fStores}, fromSession);
+        allowedStores:found.allowedStores||null}, fromSession);
     } else if(found.status === 'rejected'){
       // Tài khoản bị từ chối đăng nhập lại → reset về pending để admin xét lại
       found.status = 'pending';
@@ -159,7 +155,7 @@ async function refreshApprovalList(){
   pendingEl.innerHTML = '<div class="no-pending">Đang tải...</div>';
 
   const accounts = await apiGetAccounts();
-  const pending = accounts.filter(a => a.status === 'pending' || (!a.status && !a.googleUid));
+  const pending = accounts.filter(a => a.status === 'pending');
 
   let html = '';
   if(pending.length > 0){
@@ -181,8 +177,8 @@ async function refreshApprovalList(){
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
           <div class="member-avatar">${req.avatar ? `<img src="${req.avatar}">` : initials}</div>
           <div>
-            <div class="member-name">👤 ${req.fullname || req.username || '?'}</div>
-            <div class="member-email">${req.email ? '📧 '+req.email : '👤 @'+(req.username||'unknown')} <span style="font-size:9px;color:#9ca3af;">${req.googleUid?'Google':'Password'}</span></div>
+            <div class="member-name">👤 ${req.fullname}</div>
+            <div class="member-email">📧 ${req.email}</div>
             <div class="req-time" style="margin-top:2px;">Yêu cầu: ${req.requestedAt ? new Date(req.requestedAt).toLocaleString('vi-VN') : ''}</div>
           </div>
         </div>
@@ -270,8 +266,8 @@ async function renderMembersList(){
       html += `<div class="member-card">
         <div class="member-avatar">${acc.avatar ? `<img src="${acc.avatar}" onerror="this.parentElement.textContent='${initials}'">` : initials}</div>
         <div class="member-info">
-          <div class="member-name">${acc.fullname || acc.username || 'Chưa đặt tên'}</div>
-          <div class="member-email">${acc.email || '👤 @' + (acc.username||'?')} ${acc.googleUid ? '' : '<span style="font-size:9px;color:#9ca3af;margin-left:4px;">password</span>'}</div>
+          <div class="member-name">${acc.fullname || acc.username}</div>
+          <div class="member-email">${acc.email}</div>
         </div>
         <div class="member-actions">
           ${isSelf ? `<span class="role-badge role-superadmin">👑 Super Admin</span>` : `
@@ -290,7 +286,15 @@ async function renderMembersList(){
   membersEl.innerHTML = html;
 }
 
-// changeRole defined below
+async function changeRole(id, newRole){
+  const accounts = await apiGetAccounts();
+  const acc = accounts.find(a => a.id === id);
+  if(!acc) return;
+  acc.role = newRole;
+  await apiSaveAccounts(accounts);
+  // Toast nhỏ
+  showToast('✅ Đã đổi quyền thành công');
+}
 
 async function approveAccount(id){
   const accounts = await apiGetAccounts();
@@ -319,9 +323,7 @@ async function approveAccount(id){
     acc.branch = (acc.allowedStores.length > 0) ? acc.allowedStores[0] : 'global';
   }
   await apiSaveAccounts(accounts);
-  // Xóa pendingNotify - dùng googleUid (Google) hoặc id (username)
-  const notifyKey = acc.googleUid || acc.id;
-  if(fbDb) try { await fbDb.ref('pendingNotify/' + notifyKey).remove(); } catch(e){}
+  if(fbDb) try { await fbDb.ref('pendingNotify/' + acc.googleUid).remove(); } catch(e){}
   await refreshApprovalList();
   showToast('✅ Đã duyệt tài khoản', acc.fullname || acc.email);
 }
@@ -361,23 +363,10 @@ async function changeRole(id, newRole){
 
 async function checkPendingBadge(){
   if(currentUser?.role !== 'superadmin') return;
-  // Migrate: đặt status='pending' cho username accounts chưa có status
-  try {
-    const allAccs = await apiGetAccounts();
-    let needSave = false;
-    allAccs.forEach(a => {
-      if(!a.googleUid && !a.status){
-        a.status = 'pending';
-        a.requestedAt = a.requestedAt || a.createdAt || new Date().toISOString();
-        needSave = true;
-      }
-    });
-    if(needSave) await apiSaveAccounts(allAccs);
-  } catch(e){}
   const btn = $('approve-btn');
   if(btn) btn.style.display = 'inline-flex';
   const accounts = await apiGetAccounts();
-  const pendingCount = accounts.filter(a => a.status === 'pending' || (!a.status && !a.googleUid)).length;
+  const pendingCount = accounts.filter(a => a.status === 'pending').length;
   const badge = $('pending-badge');
   if(badge) badge.textContent = pendingCount > 0 ? '(' + pendingCount + ')' : '';
   // Lắng nghe realtime pending mới
@@ -598,7 +587,7 @@ async function openPermEdit(id) {
       </div>
       <div>
         <div style="font-size:14px;font-weight:800;color:#1a1a1a;">${acc.fullname || acc.username}</div>
-        <div style="font-size:11px;color:#9ca3af;">${acc.email || '👤 @'+(acc.username||'?')}</div>
+        <div style="font-size:11px;color:#9ca3af;">${acc.email}</div>
       </div>
     </div>
 

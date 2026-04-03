@@ -60,12 +60,6 @@ function showPage(id){
     }
   }
 
-  // Auto-render employees section (tab list)
-  if(id === 'employees'){
-    setTimeout(function(){
-      if(typeof renderEmployees === 'function') renderEmployees();
-    }, 60);
-  }
   // Lazy-load schedule iframe
   if(id === 'schedule'){
     setTimeout(()=>{
@@ -73,12 +67,6 @@ function showPage(id){
       const frame = $('gsheet-frame');
       if(inp && inp.value && frame && !frame.src) applySheetLink();
     }, 80);
-  }
-  // hr-eval đã gộp vào employees - redirect
-  if(id === 'hr-eval'){
-    showPage('employees');
-    setTimeout(()=>{ if(typeof nsTab==='function') nsTab('kpi'); }, 100);
-    return;
   }
   // Render flowchart when training page opens
   if(id === 'training'){
