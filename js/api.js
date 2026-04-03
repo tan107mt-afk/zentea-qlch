@@ -118,7 +118,8 @@ async function loadBranchData(){
   await loadCustomRecipes();
   
   // Reload checklist khi đổi cửa hàng
-  try { applyAllContentEdits(); } catch(e){}
+ try { applyAllContentEdits(); } catch(e){}
+    restoreUnsavedInputs();  // ← thêm dòng này
 }
   
   // Reload checklist data cho branch mới
