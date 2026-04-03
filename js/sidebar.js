@@ -408,6 +408,25 @@ function sidebarSetup(account){
       const targetBranch = allowedSt.includes(currentBranch) ? currentBranch : (firstAllowed || allowedSt[0]);
       storeSel.value = targetBranch;
       selectedBranch = targetBranch;
+       document.getElementById('sb-store-sel')?.addEventListener('change', function(){
+  const newBranch = this.value;
+  
+  // Kiểm tra quyền trước khi cho đổi
+  const allowed = currentUser?.allowedStores;
+  const role = currentUser?.role;
+  if(role !== 'superadmin' && role !== 'admin'){
+    if(!allowed || !allowed.includes(newBranch)){
+      alert('Bạn không có quyền xem cửa hàng này!');
+      this.value = selectedBranch; // Đặt lại về cũ
+      return;
+    }
+  }
+  
+  // Cập nhật selectedBranch và reload data
+  selectedBranch = newBranch;
+  if(currentUser) currentUser.branch = newBranch;
+  loadBranchData();
+});
       // Sync currentUser.branch và localStorage
       if(currentUser) currentUser.branch = targetBranch;
       try {
