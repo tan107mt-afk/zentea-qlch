@@ -1,3 +1,4 @@
+
 /* ═══════════════════════════════════════════════════
    ZENTEA – Firebase API, localStorage, Employees, Schedule
    File: js/api.js
@@ -6,109 +7,13 @@
 // ─── Branch-scoped storage key helper ──────────────────────────
 // All per-branch data is prefixed with the branch ID so stores never share data
 function branchKey(key){
-  // Namespace logic:
-  // 1. Nếu đang chọn chi nhánh cụ thể (cn01..cn17):
-  //    - Admin/Superadmin: dùng branch ID → data chia sẻ cho chi nhánh đó
-  //    - Staff: dùng branch ID → đọc data được admin nhập cho chi nhánh đó
-  // 2. Nếu 'global' hoặc không có branch:
-  //    - Dùng username → backward compatible với data cũ
-  const hasBranch = typeof selectedBranch !== 'undefined' 
-    && selectedBranch 
-    && selectedBranch !== 'global'
-    && /^cn\d+$/.test(selectedBranch); // chỉ cn01-cn17 pattern
-  
-  const ns = hasBranch
-    ? selectedBranch
-    : (currentUser && currentUser.user ? currentUser.user : 'global');
+  // Use user's unique username as namespace so each account has separate data
+  const ns = (currentUser && currentUser.user) ? currentUser.user : 'global';
   return ns + '-' + key;
 }
 
-
-// ── Branch Firebase DB helpers ──────────────────────────────────
-// Lưu/đọc data theo chi nhánh từ Firebase Realtime DB
-// Path: branches/{branchId}/{dataType}
-// → Tất cả user cùng chi nhánh chia sẻ cùng 1 bộ data
-
-async function branchDbGet(dataType){
-  const branch = (typeof selectedBranch !== 'undefined' && selectedBranch && selectedBranch !== 'global' && /^cn\d+$/.test(selectedBranch))
-    ? selectedBranch : null;
-  if(!branch || !fbDb) return null;
-  try {
-    const snap = await fbDb.ref('branches/' + branch + '/' + dataType).once('value');
-    return snap.val() || null;
-  } catch(e){ return null; }
-}
-
-async function branchDbSet(dataType, data){
-  const branch = (typeof selectedBranch !== 'undefined' && selectedBranch && selectedBranch !== 'global' && /^cn\d+$/.test(selectedBranch))
-    ? selectedBranch : null;
-  if(!branch || !fbDb) return false;
-  try {
-    await fbDb.ref('branches/' + branch + '/' + dataType).set(data);
-    return true;
-  } catch(e){ return false; }
-}
-
 // Called once after a successful login to load all branch data
-
-// Hiển thị trạng thái "Chi nhánh chưa có dữ liệu" cho section
-function showBranchEmptyState(sectionId, dataLabel){
-  if(!selectedBranch || selectedBranch === 'global') return;
-  const section = document.getElementById(sectionId);
-  if(!section) return;
-  
-  // Kiểm tra nếu section đang active
-  if(!section.classList.contains('page-active')) return;
-  
-  const branchName = STORES[selectedBranch] || selectedBranch;
-  let emptyEl = section.querySelector('.branch-empty-state');
-  if(!emptyEl){
-    emptyEl = document.createElement('div');
-    emptyEl.className = 'branch-empty-state';
-    emptyEl.style.cssText = 'text-align:center;padding:40px 20px;color:#9ca3af;';
-    emptyEl.innerHTML = `
-      <div style="font-size:40px;margin-bottom:12px;">📭</div>
-      <div style="font-size:15px;font-weight:700;color:#374151;margin-bottom:6px;">
-        Chưa có dữ liệu cho ${branchName}
-      </div>
-      <div style="font-size:13px;line-height:1.6;">
-        ${dataLabel || 'Dữ liệu'} của chi nhánh này chưa được nhập.<br>
-        ${currentUser?.role === 'staff' ? 'Liên hệ quản lý để cập nhật.' : 'Hãy thêm dữ liệu cho chi nhánh này.'}
-      </div>
-    `;
-    // Chèn sau panel-titlebar
-    const titlebar = section.querySelector('.panel-titlebar');
-    if(titlebar) titlebar.after(emptyEl);
-    else section.prepend(emptyEl);
-  }
-}
-
-// Xóa empty state khi có data
-function hideBranchEmptyState(sectionId){
-  const section = document.getElementById(sectionId);
-  section?.querySelector('.branch-empty-state')?.remove();
-}
-function saveUnsavedInputs() {
-  const inputs = document.querySelectorAll('input, textarea, select');
-  const saved = {};
-  inputs.forEach(el => {
-    if (el.id && el.value) {
-      saved[el.id] = el.value;
-    }
-  });
-  localStorage.setItem('unsaved_inputs', JSON.stringify(saved));
-}
-function restoreUnsavedInputs() {
-  const saved = JSON.parse(localStorage.getItem('unsaved_inputs') || '{}');
-  Object.entries(saved).forEach(([id, value]) => {
-    const el = document.getElementById(id);
-    if (el) el.value = value;
-  });
-  localStorage.removeItem('unsaved_inputs');
-}
 async function loadBranchData(){
-   saveUnsavedInputs();
-  _updateBranchBanner();
   await loadContacts();
   await loadEmployees();
   await loadShifts();
@@ -116,73 +21,6 @@ async function loadBranchData(){
   await loadSchedule();
   await loadCleaning();
   await loadCustomRecipes();
-  
-  // Reload checklist khi đổi cửa hàng
- try { applyAllContentEdits(); } catch(e){}
-    restoreUnsavedInputs();  // ← thêm dòng này
-}
-  
-  // Reload checklist data cho branch mới
-  if(typeof clLoadDateDone === 'function') await clLoadDateDone();
-  if(typeof clLoadDateOverrides === 'function') await clLoadDateOverrides();
-  
-  // Re-render section đang hiện (nếu có)
-  const active = document.querySelector('.acc-section.page-active');
-  if(active){
-    const id = active.id;
-    // Trigger re-render theo section
-    try {
-      if(id === 'contacts') renderContactsGrid && renderContactsGrid();
-      else if(id === 'employees') renderEmployees && renderEmployees();
-      else if(id === 'violations') renderViolations && renderViolations();
-      else if(id === 'checklist') {
-        if(typeof clRenderList === 'function') clRenderList();
-        else if(typeof clRenderTimeline === 'function') clRenderTimeline();
-      }
-      else if(id === 'recipes') renderRecipes && renderRecipes();
-    } catch(e){restoreUnsavedInputs();}
-  }
-}
-
-function _updateBranchBanner(){
-  const userNameEl = document.getElementById('tb-user-name');
-  if(!currentUser) return;
-  
-  const branchName = (selectedBranch && selectedBranch !== 'global') 
-    ? (STORES[selectedBranch] || selectedBranch) 
-    : null;
-  
-  // Cập nhật topbar user name + chi nhánh
-  if(userNameEl){
-    userNameEl.textContent = branchName 
-      ? (currentUser.fullname || currentUser.user || '') + ' — ' + branchName.replace('ZEN Tea ','')
-      : (currentUser.fullname || currentUser.user || '');
-  }
-
-  // Cập nhật store selector trong sidebar
-  const storeSel = document.getElementById('sb-store-sel');
-  if(storeSel && selectedBranch){
-    storeSel.value = selectedBranch;
-  }
-  
-  // Hiển thị/ẩn banner "Đang xem chi nhánh" ở đầu content
-  let banner = document.getElementById('branch-view-banner');
-  if(branchName && currentUser.role !== 'superadmin'){
-    if(!banner){
-      banner = document.createElement('div');
-      banner.id = 'branch-view-banner';
-      banner.style.cssText = 'display:none;';
-      document.getElementById('main')?.prepend(banner);
-    }
-    banner.innerHTML = `<div style="
-      background:linear-gradient(135deg,var(--green),#3a9430);
-      color:#fff;padding:8px 20px;font-size:13px;font-weight:700;
-      display:flex;align-items:center;gap:8px;
-    ">🏪 ${branchName} <span style="font-weight:400;opacity:.85;font-size:12px;">— Chi nhánh đang quản lý</span></div>`;
-    banner.style.display = 'block';
-  } else if(banner){
-    banner.style.display = 'none';
-  }
 }
 
 // EMOJI PICKER
@@ -223,21 +61,20 @@ let contactsData = [...DEFAULT_CONTACTS];
 
 async function loadContacts(){
   contactsData = [...DEFAULT_CONTACTS];
-  if(!fbDb || !selectedBranch || selectedBranch === 'global') {
-    renderContactsGrid();
-    return;
-  }
   try {
-    const snap = await fbDb.ref('stores/' + selectedBranch + '/contacts').once('value');
-    if(snap.val()) contactsData = snap.val();
-  } catch(e){}
+    const r = await window.storage.get(branchKey('zentea-contacts'));
+    if(r && r.value) contactsData = JSON.parse(r.value);
+  } catch(e){
+    try {
+      const s = localStorage.getItem(branchKey('zentea-contacts'));
+      if(s) contactsData = JSON.parse(s);
+    } catch(e2){}
+  }
   renderContactsGrid();
 }
 async function saveContacts(){
-  if(!fbDb || !selectedBranch || selectedBranch === 'global') return;
-  try {
-    await fbDb.ref('stores/' + selectedBranch + '/contacts').set(contactsData);
-  } catch(e){ console.error('Lỗi lưu contacts:', e); }
+  try { await window.storage.set(branchKey('zentea-contacts'), JSON.stringify(contactsData)); } catch(e){}
+  try { localStorage.setItem(branchKey('zentea-contacts'), JSON.stringify(contactsData)); } catch(e){}
 }
 
 function renderContactsGrid(){
@@ -653,17 +490,19 @@ let editingEmpId = null;
 
 async function loadEmployees(){
   employeesData = [];
-  if(!fbDb || !selectedBranch || selectedBranch === 'global') return;
   try {
-    const snap = await fbDb.ref('stores/' + selectedBranch + '/employees').once('value');
-    if(snap.val()) employeesData = snap.val();
+    const r = await window.storage.get(branchKey('zentea-employees'));
+    if(r && r.value) employeesData = JSON.parse(r.value);
+  } catch(e){}
+  try {
+    const s = localStorage.getItem(branchKey('zentea-employees'));
+    if(s && !employeesData.length) employeesData = JSON.parse(s);
   } catch(e){}
 }
+
 async function saveEmployees(){
-  if(!fbDb || !selectedBranch || selectedBranch === 'global') return;
-  try {
-    await fbDb.ref('stores/' + selectedBranch + '/employees').set(employeesData);
-  } catch(e){}
+  try { await window.storage.set(branchKey('zentea-employees'), JSON.stringify(employeesData)); } catch(e){}
+  try { localStorage.setItem(branchKey('zentea-employees'), JSON.stringify(employeesData)); } catch(e){}
 }
 
 const STATUS_COLOR = {
@@ -816,19 +655,86 @@ let shiftsData = [...DEFAULT_SHIFTS];
 
 async function loadShifts(){
   shiftsData = [...DEFAULT_SHIFTS];
-  if(!fbDb || !selectedBranch || selectedBranch === 'global') return;
   try {
-    const snap = await fbDb.ref('stores/' + selectedBranch + '/shifts').once('value');
-    if(snap.val()) shiftsData = snap.val();
+    const r = await window.storage.get(branchKey('zentea-shifts'));
+    if(r && r.value) shiftsData = JSON.parse(r.value);
+  } catch(e){}
+  try {
+    const s = localStorage.getItem(branchKey('zentea-shifts'));
+    if(s) shiftsData = JSON.parse(s);
   } catch(e){}
   populateShiftSelect();
 }
 
 async function saveShifts(){
-  if(!fbDb || !selectedBranch || selectedBranch === 'global') return;
-  try {
-    await fbDb.ref('stores/' + selectedBranch + '/shifts').set(shiftsData);
-  } catch(e){}
+  try { await window.storage.set(branchKey('zentea-shifts'), JSON.stringify(shiftsData)); } catch(e){}
+  try { localStorage.setItem(branchKey('zentea-shifts'), JSON.stringify(shiftsData)); } catch(e){}
+}
+
+function populateShiftSelect(currentVal){
+  const sel = $('emp-shift');
+  if(!sel) return;
+  const val = currentVal || sel.value;
+  sel.innerHTML = shiftsData.map(s =>
+    `<option value="${s}" ${s===val?'selected':''}>${s}</option>`
+  ).join('');
+}
+
+function openShiftManager(){
+  show('shift-modal','flex');
+  renderShiftList();
+  $('new-shift-input').value = '';
+}
+
+function closeShiftModal(){
+  hide('shift-modal');
+  populateShiftSelect();
+}
+var _sm=$('shift-modal'); if(_sm) _sm.addEventListener('click', function(e){
+  if(e.target === this) closeShiftModal();
+});
+
+function renderShiftList(){
+  const el = $('shift-list');
+  if(!el) return;
+  if(!shiftsData.length){
+    el.innerHTML = `<p style="color:#bbb;font-size:13px;text-align:center;padding:12px;">Chưa có ca nào</p>`;
+    return;
+  }
+  el.innerHTML = shiftsData.map((s, i) => `
+    <div style="display:flex;align-items:center;gap:8px;padding:9px 12px;
+      background:var(--green-pale);border-radius:10px;">
+      <span style="font-size:16px;">🕐</span>
+      <span id="shift-label-${i}" style="flex:1;font-size:13px;font-weight:600;color:var(--dark);">${s}</span>
+      <input id="shift-edit-${i}" type="text" value="${s}"
+        style="display:none;flex:1;padding:6px 10px;border:1.5px solid var(--green);border-radius:8px;
+        font-family:'Open Sans',sans-serif;font-size:13px;outline:none;"
+        onkeydown="if(event.key==='Enter')confirmEditShift(${i});if(event.key==='Escape')cancelEditShift(${i})"/>
+      <button onclick="startEditShift(${i})" id="shift-btn-edit-${i}"
+        style="padding:4px 10px;background:#fff;border:1.5px solid var(--border);border-radius:8px;
+        font-size:12px;color:var(--green);cursor:pointer;font-weight:600;">✏️</button>
+      <button onclick="confirmEditShift(${i})" id="shift-btn-save-${i}"
+        style="display:none;padding:4px 10px;background:var(--green);border:none;border-radius:8px;
+        font-size:12px;color:#fff;cursor:pointer;font-weight:600;">✔</button>
+      <button onclick="deleteShift(${i})"
+        style="padding:4px 10px;background:#fff;border:1.5px solid #ffcdd2;border-radius:8px;
+        font-size:12px;color:#c44;cursor:pointer;font-weight:600;">🗑</button>
+    </div>`).join('');
+}
+
+function startEditShift(i){
+  $(`shift-label-${i}`).style.display = 'none';
+  $(`shift-edit-${i}`).style.display = 'block';
+  $(`shift-btn-edit-${i}`).style.display = 'none';
+  $(`shift-btn-save-${i}`).style.display = 'block';
+  $(`shift-edit-${i}`).focus();
+}
+
+function cancelEditShift(i){
+  $(`shift-label-${i}`).style.display = 'block';
+  $(`shift-edit-${i}`).style.display = 'none';
+  $(`shift-btn-edit-${i}`).style.display = 'block';
+  $(`shift-btn-save-${i}`).style.display = 'none';
 }
 
 async function confirmEditShift(i){
@@ -862,7 +768,7 @@ async function deleteShift(i){
 }
 
 // BRANCH SELECTOR
-// selectedBranch declared in config.js
+let selectedBranch = null;
 const BRANCH_NAMES = {
   ntmk: 'ZEN Tea Nguyễn Thị Minh Khai',
   vvn:  'ZEN Tea Võ Văn Ngân',
@@ -895,9 +801,9 @@ function togglePwd(){
 }
 
 // ─── MAIN AUTH ───
-// authMode declared in config.js
-// isLoggedIn declared in config.js
-// currentUser declared in config.js
+let authMode = 'login';
+let isLoggedIn = false;
+let currentUser = null;
 
 function toggleAuthMode(){}
 function togglePwdOld(){}
@@ -1038,44 +944,13 @@ async function doAuth(){
       return;
     }
 
-    // Kiểm tra status
-    const status = found.status;
-    if(status === 'pending' || !status){
-      // Chờ duyệt - hiện màn hình pending
-      showPendingScreen(found.fullname || found.username);
-      return;
-    }
-    if(status === 'rejected'){
-      // Bị từ chối → reset về pending và notify
-      found.status = 'pending';
-      found.requestedAt = new Date().toISOString();
-      await apiSaveAccounts(accounts);
-      if(fbDb){
-        try { await fbDb.ref('pendingNotify/' + found.id).set({
-          email: found.username, name: found.fullname,
-          requestedAt: Date.now(), isNew: false
-        }); } catch(e){}
-      }
-      showPendingScreen(found.fullname || found.username);
-      return;
-    }
-
-    // approved → đăng nhập
     selectedBranch = found.branch || 'global';
-    // Đảm bảo allowedStores là array
-    let _stores = found.allowedStores || null;
-    if(_stores && !Array.isArray(_stores)) _stores = Object.values(_stores);
-    if(_stores && _stores.length === 0) _stores = null;
-
     const account = {
-      user:            found.username,
-      fullname:        found.fullname || found.username,
-      email:           found.email    || null,
-      branch:          found.branch   || 'global',
-      role:            found.role     || 'staff',
-      id:              found.id,
-      allowedSections: found.allowedSections || null,
-      allowedStores:   _stores,
+      user:     found.username,
+      fullname: found.fullname || found.username,
+      branch:   found.branch  || 'global',
+      role:     found.role    || 'staff',
+      id:       found.id
     };
     loginSuccess(account, false);
 
@@ -1093,7 +968,7 @@ async function doRegister(){
   const username = ($('reg-username-input')?.value||'').trim().toLowerCase();
   const pass     = ($('reg-pass-input')?.value||'');
 
-  if(!fullname){ showRegError('Vui lòng nhập họ tên');       return; }
+  if(!fullname){ showRegError('Vui lòng nhập họ tên');      return; }
   if(!username){ showRegError('Vui lòng nhập tên đăng nhập'); return; }
   if(pass.length<4){ showRegError('Mật khẩu phải ít nhất 4 ký tự'); return; }
   if(!/^[a-z0-9_.]+$/.test(username)){ showRegError('Tên đăng nhập chỉ dùng chữ thường, số, _ và .'); return; }
@@ -1102,47 +977,33 @@ async function doRegister(){
   if(btn){ btn.disabled=true; btn.textContent='Đang xử lý...'; }
 
   try{
+    // Check duplicate username
     const accounts = await apiGetAccounts();
     if(accounts.find(a=>(a.username||'').toLowerCase()===username)){
       showRegError('Tên đăng nhập đã tồn tại, chọn tên khác'); return;
     }
 
-    // Tạo tài khoản với status PENDING - chờ superadmin duyệt
-    const newId = 'acc-' + Date.now();
+    // Create account
     const newAccount = {
-      id:          newId,
+      id:        'acc-' + Date.now(),
       username,
       fullname,
-      password:    pass,
-      role:        'staff',
-      branch:      'global',
-      status:      'pending',
-      requestedAt: new Date().toISOString(),
-      createdAt:   new Date().toISOString(),
-      allowedSections: null,
-      allowedStores:   null,
+      password:  pass,
+      role:      'staff',
+      branch:    'global',
+      createdAt: new Date().toISOString()
     };
     accounts.push(newAccount);
     await apiSaveAccounts(accounts);
 
-    // Notify superadmin qua Firebase realtime
-    if(fbDb){
-      try {
-        await fbDb.ref('pendingNotify/' + newId).set({
-          email: username, name: fullname,
-          requestedAt: Date.now(), isNew: true, type: 'register'
-        });
-      } catch(e){}
-    }
-
     // Clear form
     ['reg-fullname-input','reg-username-input','reg-pass-input']
       .forEach(id=>{ const el=$(id); if(el) el.value=''; });
-    showRegOk('✅ Tạo tài khoản thành công! Tài khoản đang chờ quản trị viên phê duyệt.');
-    setTimeout(()=>switchAuthTab('login'), 3000);
+    showRegOk('✅ Tạo tài khoản thành công! Bạn có thể đăng nhập ngay.');
+    setTimeout(()=>switchAuthTab('login'),2200);
 
   }catch(err){
-    showRegError('Lỗi: ' + err.message);
+    showRegError('Lỗi hệ thống: '+err.message);
   }finally{
     if(btn){ btn.disabled=false; btn.textContent='Tạo tài khoản →'; }
   }
