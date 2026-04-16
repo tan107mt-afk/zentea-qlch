@@ -241,19 +241,7 @@ input[type=date]{font-size:14px!important}
 <!-- ── LOGIN ── -->
 <div id="login-wrap">
   <div style="text-align:center;margin-bottom:24px">
-    <svg class="login-logo" viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g transform="rotate(15,100,110)">
-      <rect x="117" y="18" width="11" height="52" rx="4" fill="#3d1f0a" transform="rotate(12,122,44)"/>
-      <rect x="32" y="52" width="118" height="20" rx="8" fill="#3d1f0a"/>
-      <rect x="24" y="58" width="28" height="14" rx="5" fill="#3d1f0a"/>
-      <path d="M44 72 L148 72 L140 108 L52 108 Z" fill="#3d1f0a"/>
-      <rect x="30" y="118" width="24" height="88" rx="4" fill="#3d1f0a"/>
-      <rect x="146" y="118" width="24" height="88" rx="4" fill="#3d1f0a"/>
-      <polygon points="30,118 54,118 105,168 81,168" fill="#3d1f0a"/>
-      <polygon points="146,118 170,118 119,168 95,168" fill="#3d1f0a"/>
-      <polygon points="81,168 119,168 119,206 81,206" fill="#3d1f0a"/>
-    </g>
-  </svg>
+    <img src="logo.jpg" class="login-logo" style="border-radius:50%;object-fit:cover"/>
     <div class="login-brand">Bemon Coffee</div>
     <div class="login-sub">QUẢN LÝ BÁN HÀNG</div>
   </div>
@@ -274,19 +262,7 @@ input[type=date]{font-size:14px!important}
 <div id="app">
   <div id="header">
     <div style="display:flex;align-items:center;gap:9px">
-      <svg style="width:34px;height:34px;flex-shrink:0" viewBox="0 0 200 220" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g transform="rotate(15,100,110)">
-      <rect x="117" y="18" width="11" height="52" rx="4" fill="#3d1f0a" transform="rotate(12,122,44)"/>
-      <rect x="32" y="52" width="118" height="20" rx="8" fill="#3d1f0a"/>
-      <rect x="24" y="58" width="28" height="14" rx="5" fill="#3d1f0a"/>
-      <path d="M44 72 L148 72 L140 108 L52 108 Z" fill="#3d1f0a"/>
-      <rect x="30" y="118" width="24" height="88" rx="4" fill="#3d1f0a"/>
-      <rect x="146" y="118" width="24" height="88" rx="4" fill="#3d1f0a"/>
-      <polygon points="30,118 54,118 105,168 81,168" fill="#3d1f0a"/>
-      <polygon points="146,118 170,118 119,168 95,168" fill="#3d1f0a"/>
-      <polygon points="81,168 119,168 119,206 81,206" fill="#3d1f0a"/>
-    </g>
-  </svg>
+      <img src="logo.jpg" style="width:34px;height:34px;flex-shrink:0;border-radius:50%;object-fit:cover"/>
       <div>
         <div style="font-family:'Playfair Display',serif;font-size:17px;color:var(--brown);line-height:1">Bemon Coffee</div>
         <div style="font-size:9px;color:var(--sub);letter-spacing:1.5px;margin-top:2px">171 TRƯƠNG ĐỊNH</div>
@@ -477,6 +453,33 @@ const S={
   chart:null,
 };
 
+const savedStore = localStorage.getItem('BEMON_STORE');
+if (savedStore) {
+  try {
+    const parsed = JSON.parse(savedStore);
+    if(parsed.items) S.items = parsed.items;
+    if(parsed.ings) S.ings = parsed.ings;
+    if(parsed.orders) S.orders = parsed.orders;
+    if(parsed.cart) S.cart = parsed.cart;
+    if(parsed.sizes) S.sizes = parsed.sizes;
+    if(parsed.purchases) S.purchases = parsed.purchases;
+    if(parsed.voids) S.voids = parsed.voids;
+  } catch(e) {}
+}
+
+function saveStore() {
+  const storeToSave = {
+    cart: S.cart,
+    orders: S.orders,
+    items: S.items,
+    ings: S.ings,
+    sizes: S.sizes,
+    purchases: S.purchases,
+    voids: S.voids
+  };
+  localStorage.setItem('BEMON_STORE', JSON.stringify(storeToSave));
+}
+
 // ═══════════════════════════════════════
 //  HELPERS
 // ═══════════════════════════════════════
@@ -629,7 +632,7 @@ function buildMenuGrid(){
     </div>`;
   }).join('');
 }
-function setSz(e,id,s){e.stopPropagation();S.sizes[id]=s;buildMenuGrid()}
+function setSz(e,id,s){e.stopPropagation();S.sizes[id]=s;saveStore();buildMenuGrid()}
 
 function addCart(id){
   const item=S.items.find(i=>i.id===id);if(!item)return;
@@ -637,13 +640,15 @@ function addCart(id){
   const ex=S.cart.find(c=>c.key===key);
   if(ex)S.cart=S.cart.map(c=>c.key===key?{...c,qty:c.qty+1}:c);
   else S.cart=[...S.cart,{id:item.id,n:item.n,cat:item.cat,key,size:s,price:p,qty:1}];
+  saveStore();
   buildHeader();
 }
 function chgQty(key,d){
   S.cart=S.cart.map(c=>c.key===key?{...c,qty:Math.max(0,c.qty+d)}:c).filter(c=>c.qty>0);
+  saveStore();
   buildCartBody();buildHeader();
 }
-function clearCart(){S.cart=[];buildCartBody();buildHeader()}
+function clearCart(){S.cart=[];saveStore();buildCartBody();buildHeader()}
 
 // ═══════════════════════════════════════
 //  CART SHEET
@@ -736,6 +741,7 @@ function doCheckout(){
   };
   S.orders=[order,...S.orders].filter(within30);
   S.cart=[];S.pm='cash';
+  saveStore();
   closeOv('ov-pay');closeOv('ov-cart');
   buildHeader();
   toast('✓ Thanh toán thành công!');
@@ -768,19 +774,7 @@ function buildInvSheet(){
   document.getElementById('inv-body').innerHTML=`
     <div style="padding:10px 20px 0">
       <div style="text-align:center;margin-bottom:14px;padding-top:4px">
-        <svg width="46" height="56" viewBox="0 0 200 220" fill="none" style="display:block;margin:0 auto 8px">
-    <g transform="rotate(15,100,110)">
-      <rect x="117" y="18" width="11" height="52" rx="4" fill="#3d1f0a" transform="rotate(12,122,44)"/>
-      <rect x="32" y="52" width="118" height="20" rx="8" fill="#3d1f0a"/>
-      <rect x="24" y="58" width="28" height="14" rx="5" fill="#3d1f0a"/>
-      <path d="M44 72 L148 72 L140 108 L52 108 Z" fill="#3d1f0a"/>
-      <rect x="30" y="118" width="24" height="88" rx="4" fill="#3d1f0a"/>
-      <rect x="146" y="118" width="24" height="88" rx="4" fill="#3d1f0a"/>
-      <polygon points="30,118 54,118 105,168 81,168" fill="#3d1f0a"/>
-      <polygon points="146,118 170,118 119,168 95,168" fill="#3d1f0a"/>
-      <polygon points="81,168 119,168 119,206 81,206" fill="#3d1f0a"/>
-    </g>
-  </svg>
+        <img src="logo.jpg" width="46" height="46" style="display:block;margin:0 auto 8px;border-radius:50%;object-fit:cover"/>
         <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--brown);font-weight:700">BEMON COFFEE</div>
         <div style="font-size:11px;color:var(--sub);margin-top:2px">171 Trương Định, Tân Mai · 0941.615.912</div>
       </div>
@@ -1268,7 +1262,7 @@ function buildItemsTab(){
     </div>`;
   }).join('');
 }
-function delItem(id){S.items=S.items.filter(i=>i.id!==id);buildItemsTab();buildMenuGrid()}
+function delItem(id){S.items=S.items.filter(i=>i.id!==id);saveStore();buildItemsTab();buildMenuGrid()}
 function openItemForm(){S.itemEditId=null;document.getElementById('item-form-title').textContent='➕ Thêm mặt hàng';renderItemForm({n:'',cat:'Robusta',pM:'',pL:'',cM:'',cL:''});openOv('ov-item-form')}
 function openItemEdit(id){const item=S.items.find(i=>i.id===id);if(!item)return;S.itemEditId=id;document.getElementById('item-form-title').textContent='✏️ Chỉnh sửa';renderItemForm({n:item.n,cat:item.cat,pM:item.pM||'',pL:item.pL||'',cM:item.cM||'',cL:item.cL||''});openOv('ov-item-form')}
 function renderItemForm(f){
@@ -1300,6 +1294,7 @@ function saveItem(){
     cL:document.getElementById('if-cL').value?+document.getElementById('if-cL').value:null};
   if(S.itemEditId!=null)S.items=S.items.map(i=>i.id===S.itemEditId?{...i,...obj}:i);
   else S.items=[...S.items,{...obj,id:Date.now()}];
+  saveStore();
   closeOv('ov-item-form');buildItemsTab();buildMenuGrid();toast('✓ Đã lưu mặt hàng');
 }
 
@@ -1325,7 +1320,7 @@ function buildIngsTab(){
     </div>`;
   }).join('');
 }
-function delIng(id){S.ings=S.ings.filter(g=>g.id!==id);buildIngsTab()}
+function delIng(id){S.ings=S.ings.filter(g=>g.id!==id);saveStore();buildIngsTab()}
 function openIngForm(){S.ingEditId=null;document.getElementById('ing-form-title').textContent='➕ Thêm nguyên liệu';renderIngForm({n:'',u:'gram',cp:'',st:''});openOv('ov-ing-form')}
 function openIngEdit(id){const g=S.ings.find(x=>x.id===id);if(!g)return;S.ingEditId=id;document.getElementById('ing-form-title').textContent='✏️ Chỉnh sửa';renderIngForm({n:g.n,u:g.u,cp:g.cp,st:g.st});openOv('ov-ing-form')}
 function renderIngForm(f){
@@ -1344,6 +1339,7 @@ function saveIng(){
   const obj={n,u:document.getElementById('gf-u').value,cp:+document.getElementById('gf-cp').value,st:+document.getElementById('gf-st').value};
   if(S.ingEditId!=null)S.ings=S.ings.map(g=>g.id===S.ingEditId?{...g,...obj}:g);
   else S.ings=[...S.ings,{...obj,id:'i'+Date.now()}];
+  saveStore();
   closeOv('ov-ing-form');buildIngsTab();toast('✓ Đã lưu nguyên liệu');
 }
 
@@ -1406,6 +1402,7 @@ function savePurch(){
   const tot=lines.reduce((s,l)=>s+l.total,0);
   S.purchases=[{id:uid(),date:today(),lines,total:tot,note:S.pNote},...S.purchases];
   S.ings=S.ings.map(g=>{const l=lines.find(l=>l.ig===g.id);if(!l)return g;const nc=(g.st*g.cp+l.total)/(g.st+l.qty);return{...g,st:g.st+l.qty,cp:nc}});
+  saveStore();
   closeOv('ov-purch-form');buildIngsTab();buildPurchTab();toast('✓ Đã lưu phiếu nhập hàng');
 }
 
@@ -1453,6 +1450,7 @@ function saveVoid(){
   S.voids=[{id:uid(),date:today(),ingId:g.id,ingName:g.n,unit:g.u,qty,cost:qty*g.cp,reason:S.vReason},...S.voids];
   S.ings=S.ings.map(x=>x.id===g.id?{...x,st:Math.max(0,x.st-qty)}:x);
   S.vQty='';S.vReason='';
+  saveStore();
   closeOv('ov-void-form');buildIngsTab();buildVoidTab();toast('✓ Đã lưu phiếu huỷ hàng');
 }
 </script>
