@@ -1141,15 +1141,19 @@ function exportCSV(invoices){
 //  INVENTORY
 // ═══════════════════════════════════════
 function buildInventory(){
-  buildItemsTab();buildIngsTab();buildPurchTab();buildVoidTab();buildStockTab();
+  buildItemsTab();buildIngsTab();buildPurchTab();buildVoidTab();
+  if(S.invTab==='stock') buildStockTab();
 }
 function setInvTab(t){
   S.invTab=t;
+  // Build content trước
+  if(t==='stock') buildStockTab();
+  // Rồi mới show
   document.querySelectorAll('.ist').forEach((b,i)=>b.classList.toggle('on',['items','ingredients','purchase','void','stock'][i]===t));
   document.querySelectorAll('.inv-sub').forEach(p=>p.classList.remove('on'));
-  document.getElementById('isub-'+t).classList.add('on');
+  const target=document.getElementById('isub-'+t);
+  if(target) target.classList.add('on');
   buildHeader();
-  if(t==='stock') buildStockTab();
 }
 
 // Items tab
@@ -1403,6 +1407,93 @@ function saveVoid(){
   S.vQty='';S.vReason='';
   saveStore();
   closeOv('ov-void-form');buildIngsTab();buildVoidTab();toast('✓ Đã lưu phiếu huỷ hàng');
+}
+
+// ═══════════════════════════════════════
+//  STOCK TAB — Tồn kho nguyên liệu
+// ═══════════════════════════════════════
+function buildStockTab(){
+  const el=document.getElementById('isub-stock');
+  if(!el){console.warn('isub-stock not found');return;}
+  const today=isoNow();
+
+  // Tính nhập & huỷ hôm nay theo từng nguyên liệu
+  const toISO=d=>{const p=d.split('/');return p.length===3?`${p[2]}-${p[1].padStart(2,'0')}-${p[0].padStart(2,'0')}`:d};
+  const purchMap={};
+  S.purchases.filter(p=>toISO(p.date)===today).forEach(p=>p.lines.forEach(l=>{purchMap[l.ig]=(purchMap[l.ig]||0)+l.qty}));
+  const voidMap={};
+  S.voids.filter(v=>toISO(v.date)===today).forEach(v=>{voidMap[v.ingId]=(voidMap[v.ingId]||0)+v.qty});
+
+  const totalVal=S.ings.reduce((s,g)=>s+g.st*g.cp,0);
+  const lowCount=S.ings.filter(g=>g.st<200).length;
+
+  el.innerHTML=`
+    <div class="grid3" style="margin-bottom:14px">
+      <div class="sc" style="background:#fff8f0;border:1.5px solid #c8873a28">
+        <div class="sc-icon">📦</div><div class="sc-label">Nguyên liệu</div>
+        <div class="sc-val" style="color:var(--accent)">${S.ings.length}</div>
+      </div>
+      <div class="sc" style="background:#f0faf4;border:1.5px solid #16a34a28">
+        <div class="sc-icon">💰</div><div class="sc-label">Giá trị tồn</div>
+        <div class="sc-val" style="color:#16a34a;font-size:12px">${fmt(Math.round(totalVal))}</div>
+      </div>
+      <div class="sc" style="background:${lowCount?'#fff1f1':'#f0faf4'};border:1.5px solid ${lowCount?'#ef444428':'#16a34a28'}">
+        <div class="sc-icon">${lowCount?'⚠️':'✅'}</div><div class="sc-label">Sắp hết</div>
+        <div class="sc-val" style="color:${lowCount?'#ef4444':'#16a34a'}">${lowCount}</div>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <div style="padding:12px 14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div style="font-weight:700;font-size:14px">📋 Bảng tồn kho</div>
+        <div style="font-size:11px;color:var(--text-muted)">${new Date().toLocaleDateString('vi-VN')}</div>
+      </div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+        <table style="width:100%;border-collapse:collapse;font-size:12px;min-width:440px">
+          <thead>
+            <tr style="background:var(--bg)">
+              <th style="padding:9px 12px;text-align:left;font-weight:600;font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Nguyên liệu</th>
+              <th style="padding:9px 8px;text-align:right;font-weight:600;font-size:11px;color:#16a34a;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Nhập hôm nay</th>
+              <th style="padding:9px 8px;text-align:right;font-weight:600;font-size:11px;color:#ef4444;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Huỷ hôm nay</th>
+              <th style="padding:9px 8px;text-align:right;font-weight:600;font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Tồn hiện tại</th>
+              <th style="padding:9px 8px;text-align:right;font-weight:600;font-size:11px;color:var(--text-muted);border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Giá nhập</th>
+              <th style="padding:9px 12px;text-align:right;font-weight:600;font-size:11px;color:#16a34a;border-bottom:1px solid var(--border);text-transform:uppercase;letter-spacing:.4px;white-space:nowrap">Giá trị tồn</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${S.ings.map((g,i)=>{
+              const pQty=purchMap[g.id]||0;
+              const vQty=voidMap[g.id]||0;
+              const val=Math.round(g.st*g.cp);
+              const low=g.st<200;
+              return`<tr style="background:${i%2===0?'var(--surface)':'#FAFAF8'}">
+                <td style="padding:10px 12px;${low?'border-left:3px solid #ef4444':'border-left:3px solid transparent'}">
+                  <div style="font-weight:600;font-size:12px">${g.n}${low?`<span style="background:#fee2e2;color:#dc2626;border-radius:4px;padding:1px 5px;font-size:10px;font-weight:600;margin-left:5px">Sắp hết</span>`:''}</div>
+                  <div style="font-size:10px;color:var(--text-muted);margin-top:1px">${g.u}</div>
+                </td>
+                <td style="padding:10px 8px;text-align:right;font-weight:600;color:${pQty?'#16a34a':'var(--text-muted)'}">
+                  ${pQty?`+${pQty.toLocaleString()} ${g.u}`:'—'}
+                </td>
+                <td style="padding:10px 8px;text-align:right;font-weight:600;color:${vQty?'#ef4444':'var(--text-muted)'}">
+                  ${vQty?`-${vQty.toLocaleString()} ${g.u}`:'—'}
+                </td>
+                <td style="padding:10px 8px;text-align:right">
+                  <span style="font-weight:700;font-size:13px;color:${low?'#ef4444':'var(--text-primary)'}">${g.st.toLocaleString()}</span>
+                  <span style="color:var(--text-muted);font-size:10px"> ${g.u}</span>
+                </td>
+                <td style="padding:10px 8px;text-align:right;color:var(--text-muted);font-size:11px">${fmt(g.cp)}/${g.u}</td>
+                <td style="padding:10px 12px;text-align:right;font-weight:700;color:#16a34a">${fmt(val)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr style="background:var(--bg);border-top:2px solid var(--border)">
+              <td colspan="5" style="padding:11px 12px;font-weight:700;font-size:13px;color:var(--text-primary)">TỔNG GIÁ TRỊ TỒN KHO</td>
+              <td style="padding:11px 12px;text-align:right;font-weight:700;font-size:15px;color:#16a34a">${fmt(Math.round(totalVal))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>`;
 }
 Object.assign(window,{
   // Login
