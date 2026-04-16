@@ -702,17 +702,19 @@ function cancelOrder(id){
   if(!o){toast('Không tìm thấy hoá đơn',true);return}
   if(o.cancelled){toast('Hoá đơn đã bị huỷ rồi',true);return}
   if(!confirm(`Xác nhận HUỶ hoá đơn ${o.invoiceNo}?\nThao tác này không thể hoàn tác.`))return;
+  // Cập nhật state trước
   S.orders=S.orders.map(x=>x.id===id?{...x,cancelled:true,cancelledAt:new Date().toISOString()}:x);
+  S.curInv=S.orders.find(x=>x.id===id)||null;
   saveStore();
   // Cập nhật Firebase
-  try{
-    import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js').then(({doc,updateDoc})=>{
-      updateDoc(doc(db,'orders',String(id)),{cancelled:true,cancelledAt:new Date().toISOString()});
-    });
-  }catch(e){}
+  fbSaveOrder(S.orders.find(x=>x.id===id));
+  // Đóng overlay
   closeOv('ov-inv');
-  buildInvoices();
-  toast('✓ Đã huỷ hoá đơn '+o.invoiceNo);
+  // Rebuild ngay sau khi overlay đóng (dùng setTimeout để DOM kịp update)
+  setTimeout(()=>{
+    buildInvoices();
+    toast('✓ Đã huỷ hoá đơn '+o.invoiceNo);
+  }, 50);
 }
 
 // ═══════════════════════════════════════
