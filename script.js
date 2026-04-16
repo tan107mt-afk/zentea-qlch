@@ -177,7 +177,7 @@ const pr=item=>{const s=sz(item);return s==='M'?(item.pM!=null?item.pM:item.pL):
 const cTotal=()=>S.cart.reduce((s,c)=>s+c.price*c.qty,0);
 const cCount=()=>S.cart.reduce((s,c)=>s+c.qty,0);
 const liveOrders=()=>S.orders; // Firebase lưu vĩnh viễn
-const activeOrders=()=>S.orders.filter(o=>!o.cancelled); // Chỉ đơn chưa huỷ
+const activeOrders=()=>S.orders.filter(o=>!o.cancelled&&!o.refunded&&!o.isRefund); // Chỉ đơn chưa hoàn tiền
 
 // ═══════════════════════════════════════
 //  TOAST
@@ -658,12 +658,12 @@ function buildInvSheet(){
       </div>
       <div style="text-align:center;margin-bottom:18px;font-size:13px;color:var(--muted)">🙏 Cảm ơn quý khách! Hẹn gặp lại ☕</div>
     </div>`;
-  const isCancelled=o.cancelled||false;
+  const isCancelled=o.cancelled||o.refunded||o.isRefund||false;
   document.getElementById('inv-foot').innerHTML=`
     <button class="btn btn-gh" style="flex:1" onclick="closeOv('ov-inv')">Đóng</button>
     ${isCancelled
-      ? `<div style="flex:2;background:#fee2e2;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#dc2626">🚫 Đã huỷ</div>`
-      : `<button class="btn btn-dn" style="flex:1" onclick="cancelOrder(${o.id})">🚫 Huỷ HĐ</button>
+      ? `<div style="flex:2;background:#fee2e2;border-radius:12px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;color:#dc2626">${o.isRefund?'↩️ Phiếu hoàn tiền':'✓ Đã hoàn tiền'}</div>`
+      : `<button class="btn btn-dn" style="flex:1" onclick="refundOrder(${o.id})">↩️ Hoàn tiền</button>
          <button class="btn btn-pr" style="flex:2" onclick="doPrint()">🖨️ In hoá đơn</button>`
     }`;
 }
@@ -698,23 +698,57 @@ function doPrint(){
 //  CANCEL INVOICE
 // ═══════════════════════════════════════
 function cancelOrder(id){
+  refundOrder(id);
+}
+function refundOrder(id){
   const o=S.orders.find(x=>x.id===id);
   if(!o){toast('Không tìm thấy hoá đơn',true);return}
-  if(o.cancelled){toast('Hoá đơn đã bị huỷ rồi',true);return}
-  if(!confirm(`Xác nhận HUỶ hoá đơn ${o.invoiceNo}?\nThao tác này không thể hoàn tác.`))return;
-  // Cập nhật state trước
-  S.orders=S.orders.map(x=>x.id===id?{...x,cancelled:true,cancelledAt:new Date().toISOString()}:x);
-  S.curInv=S.orders.find(x=>x.id===id)||null;
+  if(o.refunded){toast('Hoá đơn đã được hoàn tiền rồi',true);return}
+  if(!confirm(`Xác nhận HOÀN TIỀN hoá đơn ${o.invoiceNo}?\nSố tiền ${new Intl.NumberFormat('vi-VN').format(o.total)}đ sẽ được hoàn lại.\nThao tác này không thể hoàn tác.`))return;
+
+  const now=new Date();
+  // Tạo bút toán hoàn tiền âm
+  const refundNo=(()=>{
+    const pmCode={'cash':'TM','transfer':'CK','shopeefood':'SF','grabfood':'GB'};
+    const code=pmCode[o.pm]||'XX';
+    const dd=String(now.getDate()).padStart(2,'0');
+    const mm=String(now.getMonth()+1).padStart(2,'0');
+    const yy=String(now.getFullYear());
+    const prefix='HT'+code+dd+mm+yy;
+    const sameDay=S.orders.filter(x=>x.isoDate===now.toISOString().slice(0,10)&&x.isRefund);
+    const seq=String(sameDay.length+1).padStart(2,'0');
+    return prefix+seq;
+  })();
+
+  const refundOrder={
+    id:Date.now(),
+    ts:now.toISOString(),
+    isoDate:now.toISOString().slice(0,10),
+    invoiceNo:refundNo,
+    date:now.toLocaleDateString('vi-VN'),
+    time:now.toLocaleTimeString('vi-VN'),
+    pm:o.pm,
+    items:o.items.map(it=>({...it,qty:-it.qty})),
+    total:-o.total,
+    isRefund:true,
+    refundOf:o.invoiceNo,
+  };
+
+  // Đánh dấu đơn gốc đã hoàn tiền
+  S.orders=S.orders.map(x=>x.id===id
+    ?{...x,refunded:true,refundedAt:now.toISOString(),refundInvoice:refundNo}
+    :x);
+  // Thêm bút toán hoàn tiền
+  S.orders=[refundOrder,...S.orders];
   saveStore();
-  // Cập nhật Firebase
+  fbSaveOrder(refundOrder);
   fbSaveOrder(S.orders.find(x=>x.id===id));
-  // Đóng overlay
+
   closeOv('ov-inv');
-  // Rebuild ngay sau khi overlay đóng (dùng setTimeout để DOM kịp update)
   setTimeout(()=>{
     buildInvoices();
-    toast('✓ Đã huỷ hoá đơn '+o.invoiceNo);
-  }, 50);
+    toast('✓ Đã hoàn tiền '+fmt(o.total)+' · '+refundNo);
+  },50);
 }
 
 // ═══════════════════════════════════════
@@ -1078,8 +1112,9 @@ function buildInvoices(){
         <div class="item-tags">
           ${o.items.map(it=>`<span class="itag">${CATS[it.cat]?.icon||''} ${it.n} <b>${it.size}</b>×${it.qty}</span>`).join('')}
         </div>
-        ${o.cancelled?`<div style="background:#fee2e2;border-radius:10px;padding:8px;text-align:center;font-weight:800;font-size:12px;color:#dc2626;margin-bottom:8px">🚫 Hoá đơn đã bị huỷ</div>`:''}
-        <button class="btn ${o.cancelled?'btn-gh':'btn-pr'} btn-full" onclick="showInvById(${o.id})" style="font-size:13px;padding:10px">🧾 Xem hoá đơn</button>
+        ${o.refunded?`<div style="background:#fff8f0;border-radius:10px;padding:6px 10px;font-size:11px;font-weight:800;color:#c8873a;margin-bottom:6px">↩️ Đã hoàn tiền · ${o.refundInvoice||''}</div>`:''}
+        ${o.isRefund?`<div style="background:#fee2e2;border-radius:10px;padding:6px 10px;font-size:11px;font-weight:800;color:#dc2626;margin-bottom:6px">↩️ Phiếu hoàn tiền · HĐ gốc: ${o.refundOf||''}</div>`:''}
+        <button class="btn ${(o.refunded||o.isRefund)?'btn-gh':'btn-pr'} btn-full" onclick="showInvById(${o.id})" style="font-size:13px;padding:10px">🧾 Xem hoá đơn</button>
       </div>`;
     }).join('')}`;
 }
@@ -1346,7 +1381,7 @@ Object.assign(window,{
   addCart, chgQty, clearCart, buildPosCart,
   openCart, openPay, setPM, doCheckout,
   // Invoice
-  showInvById, doPrint, cancelOrder,
+  showInvById, doPrint, cancelOrder, refundOrder,
   // Report
   setRM, setRR,
   // Inventory tabs
