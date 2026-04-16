@@ -73,32 +73,94 @@ const S={
   chart:null,
 };
 
-const savedStore = localStorage.getItem('BEMON_STORE');
-if (savedStore) {
-  try {
-    const parsed = JSON.parse(savedStore);
-    if(parsed.items) S.items = parsed.items;
-    if(parsed.ings) S.ings = parsed.ings;
-    if(parsed.orders) S.orders = parsed.orders;
-    if(parsed.cart) S.cart = parsed.cart;
-    if(parsed.sizes) S.sizes = parsed.sizes;
-    if(parsed.purchases) S.purchases = parsed.purchases;
-    if(parsed.voids) S.voids = parsed.voids;
-  } catch(e) {}
+// ═══════════════════════════════════════
+//  FIREBASE SETUP
+// ═══════════════════════════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, getDoc, setDoc, collection, addDoc, getDocs, query, orderBy, limit, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBbtSeBGNPOwKRYOt0VEAMx6VP4e_iuw2o",
+  authDomain: "bemon-coffee-pos.firebaseapp.com",
+  projectId: "bemon-coffee-pos",
+  storageBucket: "bemon-coffee-pos.firebasestorage.app",
+  messagingSenderId: "803940198449",
+  appId: "1:803940198449:web:3f7ecd204c3778999acd10"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+
+// ── Firestore helpers ──
+async function fbSaveStore(){
+  try{
+    await setDoc(doc(db,'store','main'),{
+      items: S.items,
+      ings: S.ings,
+      sizes: S.sizes,
+      cart: S.cart,
+      purchases: S.purchases,
+      voids: S.voids,
+      updatedAt: new Date().toISOString()
+    });
+  }catch(e){console.error('fbSaveStore',e)}
 }
 
-function saveStore() {
-  const storeToSave = {
-    cart: S.cart,
-    orders: S.orders,
-    items: S.items,
-    ings: S.ings,
-    sizes: S.sizes,
-    purchases: S.purchases,
-    voids: S.voids
+async function fbSaveOrder(order){
+  try{
+    await setDoc(doc(db,'orders',String(order.id)), order);
+  }catch(e){console.error('fbSaveOrder',e)}
+}
+
+async function fbLoadAll(){
+  try{
+    // Load store config
+    const snap = await getDoc(doc(db,'store','main'));
+    if(snap.exists()){
+      const d = snap.data();
+      if(d.items) S.items = d.items;
+      if(d.ings) S.ings = d.ings;
+      if(d.sizes) S.sizes = d.sizes;
+      if(d.cart) S.cart = d.cart;
+      if(d.purchases) S.purchases = d.purchases;
+      if(d.voids) S.voids = d.voids;
+    }
+    // Load orders (tất cả, không giới hạn 30 ngày nữa)
+    const oSnap = await getDocs(query(collection(db,'orders'), orderBy('id','desc')));
+    S.orders = oSnap.docs.map(d=>d.data());
+  }catch(e){
+    console.error('fbLoadAll',e);
+    // fallback localStorage nếu offline
+    _loadLocalStorage();
+  }
+}
+
+function _loadLocalStorage(){
+  const savedStore = localStorage.getItem('BEMON_STORE');
+  if(savedStore){
+    try{
+      const parsed = JSON.parse(savedStore);
+      if(parsed.items) S.items = parsed.items;
+      if(parsed.ings) S.ings = parsed.ings;
+      if(parsed.orders) S.orders = parsed.orders;
+      if(parsed.cart) S.cart = parsed.cart;
+      if(parsed.sizes) S.sizes = parsed.sizes;
+      if(parsed.purchases) S.purchases = parsed.purchases;
+      if(parsed.voids) S.voids = parsed.voids;
+    }catch(e){}
+  }
+}
+
+// saveStore: lưu cả Firebase lẫn localStorage (backup offline)
+function saveStore(){
+  const storeToSave={
+    cart:S.cart, orders:S.orders, items:S.items,
+    ings:S.ings, sizes:S.sizes,
+    purchases:S.purchases, voids:S.voids
   };
   localStorage.setItem('BEMON_STORE', JSON.stringify(storeToSave));
+  fbSaveStore(); // async, không chặn UI
 }
+
 
 // ═══════════════════════════════════════
 //  HELPERS
@@ -114,7 +176,7 @@ const sz=item=>S.sizes[item.id]||(item.pM!=null?'M':'L');
 const pr=item=>{const s=sz(item);return s==='M'?(item.pM!=null?item.pM:item.pL):item.pL};
 const cTotal=()=>S.cart.reduce((s,c)=>s+c.price*c.qty,0);
 const cCount=()=>S.cart.reduce((s,c)=>s+c.qty,0);
-const liveOrders=()=>S.orders.filter(within30);
+const liveOrders=()=>S.orders; // Firebase lưu vĩnh viễn, không giới hạn 30 ngày
 
 // ═══════════════════════════════════════
 //  TOAST
@@ -146,8 +208,10 @@ function doLogin(){
   const btn=document.getElementById('lbtn');
   if(!u||!p){err.textContent='⚠️ Vui lòng nhập đầy đủ thông tin';err.style.display='block';return}
   btn.disabled=true;btn.textContent='Đang xác thực...';
-  setTimeout(()=>{
+  setTimeout(async ()=>{
     if(u===CRED.u&&p===CRED.p){
+      btn.textContent='Đang tải dữ liệu... ☁️';
+      await fbLoadAll();
       document.getElementById('login-wrap').style.display='none';
       document.getElementById('app').style.display='flex';
       initApp();
@@ -175,7 +239,7 @@ document.getElementById('lu').addEventListener('keydown',e=>{if(e.key==='Enter')
 function initApp(){
   S.pLines=[{ig:S.ings[0]?.id||'',qty:'',uc:''}];
   S.vIng=S.ings[0]?.id||'';
-  buildCatChips();buildMenuGrid();buildHeader();
+  buildCatChips();buildMenuGrid();buildHeader();buildPosCart();
 }
 
 // ═══════════════════════════════════════
@@ -237,7 +301,7 @@ function buildMenuGrid(){
   const list=S.selCat==='Tất cả'?S.items:S.items.filter(m=>m.cat===S.selCat);
   el.innerHTML=list.map(item=>{
     const s=sz(item),hM=item.pM!=null,hL=item.pL!=null,p=pr(item);
-    return`<div class="mi" onclick="addCart(${item.id})">
+    return`<div class="mi" onclick="openItemDetail(${item.id})">
       <div class="mi-icon">${CATS[item.cat]?.icon||'☕'}</div>
       <div class="mi-name">${item.n}</div>
       <div class="mi-cat">${item.cat}</div>
@@ -254,6 +318,104 @@ function buildMenuGrid(){
 }
 function setSz(e,id,s){e.stopPropagation();S.sizes[id]=s;saveStore();buildMenuGrid()}
 
+// ═══════════════════════════════════════
+//  ITEM DETAIL PANEL
+// ═══════════════════════════════════════
+let _detailId=null;
+let _detailQty=1;
+
+function openItemDetail(id){
+  _detailId=id;_detailQty=1;
+  const isMobile=window.innerWidth<768;
+  if(isMobile){
+    _renderDetailContent('idm-body','idm-footer');
+    document.getElementById('idm-title').textContent=S.items.find(i=>i.id===id)?.n||'Chi tiết món';
+    document.getElementById('item-detail-mobile').classList.add('open');
+  }else{
+    _renderDetailContent('idp-body','idp-footer');
+    document.getElementById('item-detail-panel').classList.add('open');
+  }
+}
+
+function closeItemDetail(){
+  document.getElementById('item-detail-panel').classList.remove('open');
+  document.getElementById('item-detail-mobile').classList.remove('open');
+  _detailId=null;
+}
+
+function setDetailSz(s){
+  if(!_detailId)return;
+  S.sizes[_detailId]=s;saveStore();
+  const isMobile=window.innerWidth<768;
+  _renderDetailContent(isMobile?'idm-body':'idp-body', isMobile?'idm-footer':'idp-footer');
+  buildMenuGrid();
+}
+
+function chgDetailQty(d){
+  _detailQty=Math.max(1,_detailQty+d);
+  const isMobile=window.innerWidth<768;
+  _renderDetailContent(isMobile?'idm-body':'idp-body', isMobile?'idm-footer':'idp-footer');
+}
+
+function addDetailToCart(){
+  if(!_detailId)return;
+  const item=S.items.find(i=>i.id===_detailId);if(!item)return;
+  const s=sz(item),p=pr(item),key=`${item.id}-${s}`;
+  const ex=S.cart.find(c=>c.key===key);
+  if(ex)S.cart=S.cart.map(c=>c.key===key?{...c,qty:c.qty+_detailQty}:c);
+  else S.cart=[...S.cart,{id:item.id,n:item.n,cat:item.cat,key,size:s,price:p,qty:_detailQty}];
+  saveStore();buildHeader();buildPosCart();
+  toast(`✓ Đã thêm ${_detailQty} × ${item.n} (${s})`);
+  closeItemDetail();
+}
+
+function _renderDetailContent(bodyId,footerId){
+  const item=S.items.find(i=>i.id===_detailId);if(!item)return;
+  const s=sz(item),p=pr(item);
+  const hM=item.pM!=null,hL=item.pL!=null;
+  const catInfo=CATS[item.cat]||{icon:'☕',color:'#6F4E37'};
+  const margin=s==='M'?(item.pM-(item.cM||0)):( item.pL-(item.cL||0));
+  const pct=p>0?Math.round(margin/p*100):0;
+
+  document.getElementById(bodyId).innerHTML=`
+    <div class="idp-icon">${catInfo.icon}</div>
+    <div class="idp-name">${item.n}</div>
+    <div class="idp-cat"><span style="background:${catInfo.color}18;color:${catInfo.color};border-radius:20px;padding:3px 10px;font-weight:700;font-size:12px">${catInfo.icon} ${item.cat}</span></div>
+    ${(hM&&hL)?`<div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:8px">Chọn size</div>
+    <div class="idp-sz-row">
+      ${hM?`<div class="idp-sz-btn${s==='M'?' on':''}" onclick="setDetailSz('M')">
+        <div class="idp-sz-label">M</div>
+        <div class="idp-sz-price">${fmt(item.pM)}</div>
+      </div>`:''}
+      ${hL?`<div class="idp-sz-btn${s==='L'?' on':''}" onclick="setDetailSz('L')">
+        <div class="idp-sz-label">L</div>
+        <div class="idp-sz-price">${fmt(item.pL)}</div>
+      </div>`:''}
+    </div>`:''}
+    <div style="background:#faf7f3;border-radius:12px;padding:12px 14px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+        <span style="color:var(--muted);font-weight:600">Giá bán</span>
+        <span style="font-weight:900;color:var(--accent)">${fmt(p)}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:13px">
+        <span style="color:var(--muted);font-weight:600">Lợi nhuận</span>
+        <span style="font-weight:800;color:#16a34a">${fmt(margin)} <span style="font-size:11px;background:#dcfce7;color:#16a34a;border-radius:5px;padding:1px 5px">${pct}%</span></span>
+      </div>
+    </div>`;
+
+  document.getElementById(footerId).innerHTML=`
+    <div class="idp-qty-row">
+      <span style="font-size:13px;font-weight:700;color:var(--muted)">Số lượng</span>
+      <div style="display:flex;align-items:center;gap:10px">
+        <button class="qbtn" style="width:34px;height:34px;font-size:18px" onclick="chgDetailQty(-1)">−</button>
+        <span style="font-weight:900;font-size:18px;min-width:24px;text-align:center">${_detailQty}</span>
+        <button class="qbtn" style="width:34px;height:34px;font-size:18px" onclick="chgDetailQty(1)">+</button>
+      </div>
+      <div class="idp-price">${fmt(p*_detailQty)}</div>
+    </div>
+    <button class="btn btn-pr btn-full" onclick="addDetailToCart()" style="font-size:15px;padding:14px">🛒 Thêm vào giỏ</button>`;
+}
+
 function addCart(id){
   const item=S.items.find(i=>i.id===id);if(!item)return;
   const s=sz(item),p=pr(item),key=`${id}-${s}`;
@@ -261,14 +423,56 @@ function addCart(id){
   if(ex)S.cart=S.cart.map(c=>c.key===key?{...c,qty:c.qty+1}:c);
   else S.cart=[...S.cart,{id:item.id,n:item.n,cat:item.cat,key,size:s,price:p,qty:1}];
   saveStore();
-  buildHeader();
+  buildHeader();buildPosCart();
 }
 function chgQty(key,d){
   S.cart=S.cart.map(c=>c.key===key?{...c,qty:Math.max(0,c.qty+d)}:c).filter(c=>c.qty>0);
   saveStore();
-  buildCartBody();buildHeader();
+  buildCartBody();buildHeader();buildPosCart();
 }
-function clearCart(){S.cart=[];saveStore();buildCartBody();buildHeader()}
+function clearCart(){S.cart=[];saveStore();buildCartBody();buildHeader();buildPosCart()}
+
+// ═══════════════════════════════════════
+//  POS CART PANEL (desktop right panel)
+// ═══════════════════════════════════════
+function buildPosCart(){
+  const panel=document.getElementById('pos-cart-panel');
+  if(!panel||window.getComputedStyle(panel).display==='none')return;
+  const cnt=cCount(),tot=cTotal();
+  // count badge
+  const countEl=document.getElementById('pcp-count');
+  if(countEl)countEl.textContent=cnt>0?`${cnt} món`:'Trống';
+  // total
+  const totEl=document.getElementById('pcp-total');
+  if(totEl)totEl.textContent=fmt(tot);
+  // payment methods
+  const pmRow=document.getElementById('pcp-pm-row');
+  if(pmRow)pmRow.innerHTML=PMS.map(p=>`<button class="pcp-pm-btn${S.pm===p.id?' on':''}" onclick="setPM('${p.id}');buildPosCart()">${p.ic} ${p.lb}</button>`).join('');
+  // body
+  const body=document.getElementById('pcp-body');
+  if(!body)return;
+  if(!S.cart.length){
+    body.innerHTML=`<div class="pcp-empty"><div style="font-size:40px">🫙</div><div style="font-weight:700;font-size:13px">Chưa có món nào</div></div>`;
+    return;
+  }
+  body.innerHTML=S.cart.map(c=>`
+    <div class="pci">
+      <div class="pci-icon">${CATS[c.cat]?.icon||'☕'}</div>
+      <div class="pci-info">
+        <div class="pci-name">${c.n}</div>
+        <div class="pci-meta">
+          <span class="sz-badge">${c.size}</span>
+          <span class="pci-price">${fmt(c.price)}</span>
+        </div>
+      </div>
+      <div class="pci-qrow">
+        <button class="pci-qbtn" onclick="chgQty('${c.key}',-1)">−</button>
+        <span class="pci-qty">${c.qty}</span>
+        <button class="pci-qbtn" onclick="chgQty('${c.key}',1)">+</button>
+      </div>
+      <div class="pci-sub">${fmt(c.price*c.qty)}</div>
+    </div>`).join('');
+}
 
 // ═══════════════════════════════════════
 //  CART SHEET
@@ -350,7 +554,7 @@ function doCheckout(){
   const now=new Date();
   const order={
     id:Date.now(),
-    ts:now.toISOString(),          // used for 30-day filter
+    ts:now.toISOString(),
     isoDate:now.toISOString().slice(0,10),
     invoiceNo:'HD'+String(Date.now()).slice(-6),
     date:now.toLocaleDateString('vi-VN'),
@@ -359,13 +563,13 @@ function doCheckout(){
     items:S.cart.map(c=>({...c})),
     total:cTotal(),
   };
-  S.orders=[order,...S.orders].filter(within30);
+  S.orders=[order,...S.orders];
   S.cart=[];S.pm='cash';
   saveStore();
+  fbSaveOrder(order); // lưu riêng vào collection orders
   closeOv('ov-pay');closeOv('ov-cart');
-  buildHeader();
+  buildHeader();buildPosCart();
   toast('✓ Thanh toán thành công!');
-  // Open invoice immediately
   setTimeout(()=>showInv(order),400);
 }
 
@@ -394,7 +598,7 @@ function buildInvSheet(){
   document.getElementById('inv-body').innerHTML=`
     <div style="padding:10px 20px 0">
       <div style="text-align:center;margin-bottom:14px;padding-top:4px">
-        <img src="logo.jpg" width="46" height="46" style="display:block;margin:0 auto 8px;border-radius:50%;object-fit:cover"/>
+        <img src="logo.png" width="46" height="46" style="display:block;margin:0 auto 8px;border-radius:50%;object-fit:cover"/>
         <div style="font-family:'Playfair Display',serif;font-size:20px;color:var(--brown);font-weight:700">BEMON COFFEE</div>
         <div style="font-size:11px;color:var(--sub);margin-top:2px">171 Trương Định, Tân Mai · 0941.615.912</div>
       </div>
@@ -1073,3 +1277,23 @@ function saveVoid(){
   saveStore();
   closeOv('ov-void-form');buildIngsTab();buildVoidTab();toast('✓ Đã lưu phiếu huỷ hàng');
 }
+// ═══════════════════════════════════════
+//  EXPOSE FUNCTIONS TO WINDOW
+//  (bắt buộc vì dùng type="module")
+// ═══════════════════════════════════════
+Object.assign(window,{
+  doLogin,doLogout,togglePW,
+  goTab,selCat,setSz,
+  openItemDetail,closeItemDetail,setDetailSz,chgDetailQty,addDetailToCart,
+  addCart,chgQty,clearCart,
+  openCart,openPay,setPM,doCheckout,
+  showInvById,
+  setInvTab,
+  openItemForm,closeOv,saveItem,deleteItem,
+  openIngForm,saveIng,
+  openPurchForm,addPL,rmPL,updPT,savePurch,
+  openVoidForm,saveVoid,
+  renderVoidForm,renderPurchForm,
+  buildPosCart,
+  S,
+});
