@@ -1277,24 +1277,30 @@ function saveVoid(){
   saveStore();
   closeOv('ov-void-form');buildIngsTab();buildVoidTab();toast('✓ Đã lưu phiếu huỷ hàng');
 }
-// ═══════════════════════════════════════
-//  EXPOSE FUNCTIONS TO WINDOW
-//  (bắt buộc vì dùng type="module")
-// ═══════════════════════════════════════
 Object.assign(window,{
-  doLogin,doLogout,togglePW,
-  goTab,selCat,setSz,
-  openItemDetail,closeItemDetail,setDetailSz,chgDetailQty,addDetailToCart,
-  addCart,chgQty,clearCart,
-  openCart,openPay,setPM,doCheckout,
-  showInvById,
+  // Login
+  doLogin, doLogout, togglePW,
+  // Navigation  
+  goTab, selCat, setSz,
+  // Item detail panel
+  openItemDetail, closeItemDetail, setDetailSz, chgDetailQty, addDetailToCart,
+  // Cart
+  addCart, chgQty, clearCart, buildPosCart,
+  openCart, openPay, setPM, doCheckout,
+  // Invoice
+  showInvById, doPrint,
+  // Report
+  setRM, setRR,
+  // Inventory tabs
   setInvTab,
-  openItemForm,openItemEdit,closeOv,saveItem,
-  openIngEdit,
-  openIngForm,saveIng,
-  openPurchForm,addPL,rmPL,updPT,savePurch,
-  openVoidForm,saveVoid,
-  renderVoidForm,renderPurchForm,
-  buildPosCart,
+  // Items
+  openItemForm, openItemEdit, closeOv, saveItem, delItem,
+  // Ingredients
+  openIngForm, openIngEdit, saveIng, delIng,
+  // Purchase
+  openPurchForm, addPL, rmPL, updPT, savePurch, renderPurchForm,
+  // Void
+  openVoidForm, saveVoid, renderVoidForm,
+  // State
   S,
 });
